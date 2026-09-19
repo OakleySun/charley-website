@@ -1,7 +1,6 @@
 const pageName = document.body.dataset.page;
 const design = window.portfolioDesigns?.[pageName];
 const stage = document.querySelector(".stage");
-const renderedLayers = [];
 
 const px = (value) => `${value}px`;
 
@@ -115,47 +114,8 @@ const renderLayer = (item, assetRoot) => {
 };
 
 const fitStage = () => {
-  const baseWidth = 1200;
-  const baseHeight = 832;
-  const viewportAspectRatio = window.innerWidth / window.innerHeight;
-  const useWideLayout = design.wideLayout && viewportAspectRatio >= design.wideLayout.minAspectRatio;
-  const scale = useWideLayout
-    ? window.innerHeight / baseHeight
-    : Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight);
-  const stageWidth = useWideLayout ? window.innerWidth / scale : baseWidth;
-  const extraWidth = Math.max(0, stageWidth - baseWidth);
-  const getWideShift = (x, anchor) => {
-    if (!useWideLayout || anchor === "left") return 0;
-    if (anchor === "right") return extraWidth;
-    if (anchor === "center") return extraWidth / 2;
-    if (x >= design.wideLayout.rightStart) return extraWidth;
-    if (x >= design.wideLayout.centerStart) return extraWidth / 2;
-    return 0;
-  };
-
-  stage.style.width = px(stageWidth);
+  const scale = Math.min(window.innerWidth / 1200, window.innerHeight / 832);
   document.documentElement.style.setProperty("--stage-scale", String(scale));
-
-  renderedLayers.forEach(({ element, item }) => {
-    if (item.type === "line") {
-      const angle = item.angle * Math.PI / 180;
-      const halfX = Math.cos(angle) * item.length / 2;
-      const halfY = Math.sin(angle) * item.length / 2;
-      const startX = item.cx - halfX + getWideShift(item.cx - halfX, item.wide);
-      const endX = item.cx + halfX + getWideShift(item.cx + halfX, item.wide);
-      const startY = item.cy - halfY;
-      const endY = item.cy + halfY;
-      const width = Math.hypot(endX - startX, endY - startY);
-      const wideAngle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
-
-      element.style.left = px((startX + endX) / 2);
-      element.style.width = px(width);
-      element.style.transform = `translate(-50%, -50%) rotate(${wideAngle}deg)`;
-      return;
-    }
-
-    element.style.left = px(item.x + getWideShift(item.x, item.wide));
-  });
 };
 
 if (!design || !stage) {
@@ -164,11 +124,7 @@ if (!design || !stage) {
 
 const assetRoot = `assets/layers/${design.assetFolder}`;
 const fragment = document.createDocumentFragment();
-design.layers.forEach((item) => {
-  const element = renderLayer(item, assetRoot);
-  renderedLayers.push({ element, item });
-  fragment.append(element);
-});
+design.layers.forEach((item) => fragment.append(renderLayer(item, assetRoot)));
 stage.append(fragment);
 
 fitStage();

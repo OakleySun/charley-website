@@ -16,11 +16,6 @@ const L = (src, cx, cy, length, angle, options = {}) => ({ type: "line", src, cx
 window.portfolioDesigns = {
   landing: {
     assetFolder: "landing",
-    wideLayout: {
-      minAspectRatio: 1.65,
-      centerStart: 500,
-      rightStart: 800,
-    },
     layers: [
       I("imgImage50.png", 5, 0, 1195, 856, { opacity: 0.17, inner: { w: 856, h: 1195, rotate: -90 } }),
       I("imgImage37.png", 801, 0, 399, 565, { opacity: 0.1 }),
@@ -79,11 +74,6 @@ window.portfolioDesigns = {
 
   "graphic-design": {
     assetFolder: "graphic-design",
-    wideLayout: {
-      minAspectRatio: 1.65,
-      centerStart: 590,
-      rightStart: 700,
-    },
     layers: [
       S("imgImage13.png", 623, -10, 57, 170, "1332.73%", "200%", "0", "0"),
       S("imgImage20.png", 106, 130, 29, 25, "1295.55%", "673.47%", "-919.08%", "-573.47%"),
@@ -169,11 +159,6 @@ window.portfolioDesigns = {
 
   clubs: {
     assetFolder: "clubs",
-    wideLayout: {
-      minAspectRatio: 1.65,
-      centerStart: 430,
-      rightStart: 850,
-    },
     layers: [
       I("imgImage24.png", 0, -8, 1200, 848, { opacity: 0.3, inner: { w: 848, h: 1200, rotate: -90 } }),
       I("imgImage25.png", 536.8, -114.35, 701.497, 1073.325, { inner: { w: 1064.666, h: 688.021, rotate: -89.27 }, position: "bottom" }),
@@ -244,11 +229,6 @@ window.portfolioDesigns = {
 
   tattoos: {
     assetFolder: "tattoos",
-    wideLayout: {
-      minAspectRatio: 1.65,
-      centerStart: 500,
-      rightStart: 700,
-    },
     layers: [
       I("imgImage6.png", -122, 0, 1444, 832, { opacity: 0.4, position: "bottom" }),
       I("imgImage5.png", 0, 0, 1200, 840, { opacity: 0.3 }),
@@ -284,7 +264,6 @@ window.portfolioDesigns = {
         lineHeight: 15,
         letterSpacing: 0.4209,
         align: "right",
-        wide: "center",
       }),
       T("I started designing in 2024, and am in the process of working more on skin.", 533, 444, 120, 64, 10.524, {
         lineHeight: 15,
@@ -307,24 +286,18 @@ window.portfolioDesigns = {
         lineHeight: 68,
         letterSpacing: -2.5168,
         align: "center",
-        wide: "center",
       }),
       I("imgPxl2024122703501356121.png", 419, 658, 109, 145),
       S("imgPxl2024072609485559121.png", 15, 679, 104, 146, "144.97%", "137.85%", "-23.6%", "-23.11%"),
-      I("imgImage38.png", 457, -263, 542, 722, { opacity: 0.15, wide: "center" }),
-      I("imgImage39.png", 339, 489, 580, 580, { opacity: 0.19, wide: "center" }),
-      I("imgImage40.png", 459, 51, 218, 163, { opacity: 0.1, wide: "center", inner: { w: 218, h: 163, rotate: 180 } }),
+      I("imgImage38.png", 457, -263, 542, 722, { opacity: 0.15 }),
+      I("imgImage39.png", 339, 489, 580, 580, { opacity: 0.19 }),
+      I("imgImage40.png", 459, 51, 218, 163, { opacity: 0.1, inner: { w: 218, h: 163, rotate: 180 } }),
       I("imgImage41.png", 540, 261, 218, 169, { opacity: 0.12 }),
     ],
   },
 
   profile: {
     assetFolder: "profile",
-    wideLayout: {
-      minAspectRatio: 1.65,
-      centerStart: 300,
-      rightStart: 870,
-    },
     layers: [
       L("imgLine7.svg", 941, 703.5, 356.439, 26.13, { thickness: 0.6 }),
       L("imgLine10.svg", 322.5, 624.5, 171.657, 5.01, { thickness: 0.6 }),
