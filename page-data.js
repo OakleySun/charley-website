@@ -23,10 +23,10 @@ window.portfolioDesigns = {
       I("imgImage37.png", 801, 0, 399, 565, { opacity: 0.1 }),
       I("imgImage49.png", 217, 60, 736, 736, { opacity: 0.2 }),
       I("imgImage52.png", 564, 199, 655, 524, { opacity: 0.26 }),
-      I("imgImage58.png", 5, -17, 1200, 849),
+      I("imgImage58.png", 5, -17, 1200, 849, { priority: "high" }),
       I("imgImage51.png", -30, -106, 564, 730, { opacity: 0.4 }),
-      I("imgImage54.png", -222, -109, 1044, 665),
-      I("imgImage56.png", -156, -123, 887.381, 994.727, { inner: { w: 567.091, h: 825.288, rotate: -27.9 } }),
+      I("imgImage54.png", -222, -109, 1044, 665, { priority: "high" }),
+      I("imgImage56.png", -156, -123, 887.381, 994.727, { priority: "high", inner: { w: 567.091, h: 825.288, rotate: -27.9 } }),
       E("text-charleys-portfolio.png", 660, 576, 206, 94, "Charley’s Portfolio"),
       E("text-latest-update.png", 663, 671, 103, 43, "latest update 9.16.26"),
       E("text-graphic-design-link.png", 325, 378, 89, 50, "graphic design", {

@@ -3,6 +3,7 @@ const design = window.portfolioDesigns?.[pageName];
 const stage = document.querySelector(".stage");
 
 const px = (value) => `${value}px`;
+const displayAssetName = (src) => src.replace(/\.[^.]+$/, ".display.webp");
 
 const applyBox = (element, item) => {
   element.style.left = px(item.x);
@@ -33,17 +34,39 @@ const makePreviewable = (element, item, assetRoot) => {
   return element;
 };
 
-const createImage = (item, assetRoot) => {
+const loadDisplayImage = (image, layer, item, assetRoot, priority) => {
+  const targetOpacity = item.opacity ?? 1;
+  const reveal = () => {
+    const show = () => window.requestAnimationFrame(() => {
+      layer.style.opacity = String(targetOpacity);
+    });
+    if (image.decode) image.decode().then(show, show);
+    else show();
+  };
+
+  layer.classList.add("asset-layer");
+  layer.style.opacity = "0";
+  image.alt = item.alt || "";
+  image.decoding = "async";
+  image.draggable = false;
+  image.fetchPriority = priority;
+  image.loading = priority === "high" ? "eager" : "lazy";
+  image.addEventListener("load", reveal, { once: true });
+  image.addEventListener("error", () => {
+    layer.style.opacity = String(targetOpacity);
+  }, { once: true });
+  image.src = `${assetRoot}/${displayAssetName(item.src)}`;
+};
+
+const createImage = (item, assetRoot, priority) => {
   if (item.sprite) {
     const frame = document.createElement("div");
     const image = document.createElement("img");
     frame.className = "layer sprite-layer";
-    image.src = `${assetRoot}/${item.src}`;
-    image.alt = item.alt || "";
-    image.draggable = false;
     Object.assign(image.style, item.sprite);
     frame.append(image);
     applyBox(frame, item);
+    loadDisplayImage(image, frame, item, assetRoot, priority);
     return makePreviewable(frame, item, assetRoot);
   }
 
@@ -51,9 +74,6 @@ const createImage = (item, assetRoot) => {
     const frame = document.createElement("div");
     const image = document.createElement("img");
     frame.className = "layer image-layer";
-    image.src = `${assetRoot}/${item.src}`;
-    image.alt = item.alt || "";
-    image.draggable = false;
     image.style.width = px(item.inner.w);
     image.style.height = px(item.inner.h);
     image.style.objectFit = item.fit || "cover";
@@ -61,26 +81,26 @@ const createImage = (item, assetRoot) => {
     image.style.transform = `translate(-50%, -50%) rotate(${item.inner.rotate || 0}deg)`;
     frame.append(image);
     applyBox(frame, item);
+    loadDisplayImage(image, frame, item, assetRoot, priority);
     return makePreviewable(frame, item, assetRoot);
   }
 
   const image = document.createElement("img");
   image.className = "layer";
-  image.src = `${assetRoot}/${item.src}`;
-  image.alt = item.alt || "";
-  image.draggable = false;
   image.style.objectFit = item.fit || "cover";
   if (item.position) image.style.objectPosition = item.position;
   applyBox(image, item);
+  loadDisplayImage(image, image, item, assetRoot, priority);
   return makePreviewable(image, item, assetRoot);
 };
 
 const createEffectText = (item, assetRoot) => {
   const image = document.createElement("img");
   image.className = "effect-text-image";
-  image.src = `${assetRoot}/${item.src}`;
   image.alt = item.href ? "" : item.alt;
+  image.decoding = "async";
   image.draggable = false;
+  image.src = `${assetRoot}/${item.src}`;
 
   if (item.href) {
     const link = document.createElement("a");
@@ -126,9 +146,12 @@ const createText = (item) => {
 const createLine = (item, assetRoot) => {
   const image = document.createElement("img");
   image.className = "layer";
-  image.src = `${assetRoot}/${item.src}`;
   image.alt = "";
+  image.decoding = "async";
   image.draggable = false;
+  image.fetchPriority = "low";
+  image.loading = "lazy";
+  image.src = `${assetRoot}/${item.src}`;
   image.style.left = px(item.cx);
   image.style.top = px(item.cy);
   image.style.width = px(item.length);
@@ -139,9 +162,9 @@ const createLine = (item, assetRoot) => {
   return image;
 };
 
-const renderLayer = (item, assetRoot) => {
+const renderLayer = (item, assetRoot, priority = "low") => {
   if (item.type === "effect-text") return createEffectText(item, assetRoot);
-  if (item.type === "image") return createImage(item, assetRoot);
+  if (item.type === "image") return createImage(item, assetRoot, priority);
   if (item.type === "text") return createText(item);
   if (item.type === "line") return createLine(item, assetRoot);
 
@@ -154,6 +177,53 @@ const renderLayer = (item, assetRoot) => {
 const fitStage = () => {
   const scale = Math.min(window.innerWidth / 1200, window.innerHeight / 832);
   document.documentElement.style.setProperty("--stage-scale", String(scale));
+};
+
+const selectPriorityImages = (targetDesign) => {
+  const images = targetDesign.layers.filter((item) => item.type === "image");
+  const selected = new Set(images.filter((item) => item.priority === "high"));
+  const portfolioImages = images
+    .filter((item) => item.preview && !selected.has(item))
+    .sort((a, b) => (b.w * b.h) - (a.w * a.h));
+
+  for (const item of portfolioImages) {
+    if (selected.size >= 4) break;
+    selected.add(item);
+  }
+
+  return selected;
+};
+
+const prepareLinkedPages = () => {
+  const pageByFile = {
+    "index.html": "landing",
+    "graphic-design.html": "graphic-design",
+    "clubs.html": "clubs",
+    "tattoos.html": "tattoos",
+    "profile.html": "profile",
+  };
+  const warmedAssets = new Map();
+
+  const warm = (link) => {
+    const file = new URL(link.href, window.location.href).pathname.split("/").pop() || "index.html";
+    const targetDesign = window.portfolioDesigns?.[pageByFile[file]];
+    if (!targetDesign) return;
+
+    for (const item of selectPriorityImages(targetDesign)) {
+      const src = `assets/layers/${targetDesign.assetFolder}/${displayAssetName(item.src)}`;
+      if (warmedAssets.has(src)) continue;
+      const preload = new Image();
+      preload.decoding = "async";
+      preload.fetchPriority = "low";
+      preload.src = src;
+      warmedAssets.set(src, preload);
+    }
+  };
+
+  document.querySelectorAll(".site-nav a, .page-link").forEach((link) => {
+    link.addEventListener("pointerenter", () => warm(link), { once: true });
+    link.addEventListener("focus", () => warm(link), { once: true });
+  });
 };
 
 const createLightbox = () => {
@@ -176,6 +246,7 @@ const createLightbox = () => {
 
   media.className = "lightbox-media";
   image.className = "lightbox-image";
+  image.decoding = "async";
   image.draggable = false;
 
   closeButton.className = "lightbox-close";
@@ -370,10 +441,15 @@ if (!design || !stage) {
 }
 
 const assetRoot = `assets/layers/${design.assetFolder}`;
+const priorityImages = selectPriorityImages(design);
 const fragment = document.createDocumentFragment();
-design.layers.forEach((item) => fragment.append(renderLayer(item, assetRoot)));
+design.layers.forEach((item) => {
+  const priority = priorityImages.has(item) ? "high" : "low";
+  fragment.append(renderLayer(item, assetRoot, priority));
+});
 stage.append(fragment);
 
 createLightbox();
+prepareLinkedPages();
 fitStage();
 window.addEventListener("resize", fitStage, { passive: true });
