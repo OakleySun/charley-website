@@ -18,6 +18,21 @@ const applyBox = (element, item) => {
   if (item.rotate) element.style.transform = `rotate(${item.rotate}deg)`;
 };
 
+const makePreviewable = (element, item, assetRoot) => {
+  if (!item.preview) return element;
+
+  const alt = item.alt || "Portfolio artwork";
+  element.classList.add("artwork-trigger");
+  element.tabIndex = 0;
+  element.setAttribute("role", "button");
+  element.setAttribute("aria-label", `View larger: ${alt}`);
+  element.setAttribute("aria-haspopup", "dialog");
+  element.setAttribute("aria-controls", "artwork-lightbox");
+  element.dataset.previewSrc = `${assetRoot}/${item.previewSrc || item.src}`;
+  element.dataset.previewAlt = alt;
+  return element;
+};
+
 const createImage = (item, assetRoot) => {
   if (item.sprite) {
     const frame = document.createElement("div");
@@ -29,7 +44,7 @@ const createImage = (item, assetRoot) => {
     Object.assign(image.style, item.sprite);
     frame.append(image);
     applyBox(frame, item);
-    return frame;
+    return makePreviewable(frame, item, assetRoot);
   }
 
   if (item.inner) {
@@ -46,7 +61,7 @@ const createImage = (item, assetRoot) => {
     image.style.transform = `translate(-50%, -50%) rotate(${item.inner.rotate || 0}deg)`;
     frame.append(image);
     applyBox(frame, item);
-    return frame;
+    return makePreviewable(frame, item, assetRoot);
   }
 
   const image = document.createElement("img");
@@ -56,6 +71,28 @@ const createImage = (item, assetRoot) => {
   image.draggable = false;
   image.style.objectFit = item.fit || "cover";
   if (item.position) image.style.objectPosition = item.position;
+  applyBox(image, item);
+  return makePreviewable(image, item, assetRoot);
+};
+
+const createEffectText = (item, assetRoot) => {
+  const image = document.createElement("img");
+  image.className = "effect-text-image";
+  image.src = `${assetRoot}/${item.src}`;
+  image.alt = item.href ? "" : item.alt;
+  image.draggable = false;
+
+  if (item.href) {
+    const link = document.createElement("a");
+    link.className = "layer page-link effect-text-link";
+    link.href = item.href;
+    link.setAttribute("aria-label", item.label || item.alt);
+    link.append(image);
+    applyBox(link, item);
+    return link;
+  }
+
+  image.classList.add("layer");
   applyBox(image, item);
   return image;
 };
@@ -103,6 +140,7 @@ const createLine = (item, assetRoot) => {
 };
 
 const renderLayer = (item, assetRoot) => {
+  if (item.type === "effect-text") return createEffectText(item, assetRoot);
   if (item.type === "image") return createImage(item, assetRoot);
   if (item.type === "text") return createText(item);
   if (item.type === "line") return createLine(item, assetRoot);
@@ -118,6 +156,215 @@ const fitStage = () => {
   document.documentElement.style.setProperty("--stage-scale", String(scale));
 };
 
+const createLightbox = () => {
+  const lightbox = document.createElement("div");
+  const media = document.createElement("div");
+  const image = document.createElement("img");
+  const closeButton = document.createElement("button");
+  const imageAnalysisCache = new Map();
+  let activeTrigger = null;
+  let activeSource = "";
+  let imageMetrics = null;
+  let hideTimer = null;
+
+  lightbox.className = "lightbox";
+  lightbox.id = "artwork-lightbox";
+  lightbox.hidden = true;
+  lightbox.setAttribute("role", "dialog");
+  lightbox.setAttribute("aria-modal", "true");
+  lightbox.setAttribute("aria-label", "Enlarged portfolio image");
+
+  media.className = "lightbox-media";
+  image.className = "lightbox-image";
+  image.draggable = false;
+
+  closeButton.className = "lightbox-close";
+  closeButton.type = "button";
+  closeButton.title = "Close image";
+  closeButton.setAttribute("aria-label", "Close enlarged image");
+
+  media.append(image);
+  lightbox.append(media, closeButton);
+  document.body.append(lightbox);
+
+  const setPageInert = (inert) => {
+    const screen = document.querySelector(".screen");
+    const navigation = document.querySelector(".site-nav");
+    screen?.toggleAttribute("inert", inert);
+    navigation?.toggleAttribute("inert", inert);
+  };
+
+  const analyzeImage = () => {
+    const fullImage = {
+      x: 0,
+      y: 0,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      transparent: false,
+    };
+    const sampleScale = Math.min(
+      1,
+      600 / Math.max(image.naturalWidth, image.naturalHeight),
+    );
+    const width = Math.max(1, Math.round(image.naturalWidth * sampleScale));
+    const height = Math.max(1, Math.round(image.naturalHeight * sampleScale));
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+
+    if (!context) return fullImage;
+    canvas.width = width;
+    canvas.height = height;
+
+    try {
+      context.drawImage(image, 0, 0, width, height);
+      const pixels = context.getImageData(0, 0, width, height).data;
+      let minX = width;
+      let minY = height;
+      let maxX = -1;
+      let maxY = -1;
+      let transparentPixels = 0;
+
+      for (let index = 3; index < pixels.length; index += 4) {
+        const alpha = pixels[index];
+        const pixel = (index - 3) / 4;
+        const x = pixel % width;
+        const y = Math.floor(pixel / width);
+
+        if (alpha < 250) transparentPixels += 1;
+        if (alpha <= 8) continue;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+
+      const transparent = transparentPixels / (width * height) > 0.005;
+      if (!transparent || maxX < minX || maxY < minY) return fullImage;
+
+      const inverseScale = 1 / sampleScale;
+      const margin = 2 * inverseScale;
+      const left = Math.max(0, minX * inverseScale - margin);
+      const top = Math.max(0, minY * inverseScale - margin);
+      const right = Math.min(image.naturalWidth, (maxX + 1) * inverseScale + margin);
+      const bottom = Math.min(image.naturalHeight, (maxY + 1) * inverseScale + margin);
+
+      return {
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+        transparent: true,
+      };
+    } catch {
+      return fullImage;
+    }
+  };
+
+  const fitImage = () => {
+    if (!image.naturalWidth || !image.naturalHeight) return;
+
+    const bounds = imageMetrics || {
+      x: 0,
+      y: 0,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      transparent: false,
+    };
+    const maxWidth = Math.min(window.innerWidth * 0.92, 1200);
+    const maxHeight = window.innerHeight * 0.86;
+    const boardPadding = bounds.transparent
+      ? Math.round(Math.min(26, Math.max(12, window.innerWidth * 0.015)))
+      : 0;
+    const availableWidth = Math.max(1, maxWidth - boardPadding * 2);
+    const availableHeight = Math.max(1, maxHeight - boardPadding * 2);
+    const scale = Math.min(
+      availableWidth / bounds.width,
+      availableHeight / bounds.height,
+      bounds.transparent ? 6 : 4,
+      6000 / Math.max(image.naturalWidth, image.naturalHeight),
+    );
+
+    media.classList.toggle("has-transparency", bounds.transparent);
+    media.style.width = px(Math.round(bounds.width * scale + boardPadding * 2));
+    media.style.height = px(Math.round(bounds.height * scale + boardPadding * 2));
+    image.style.width = px(Math.round(image.naturalWidth * scale));
+    image.style.height = px(Math.round(image.naturalHeight * scale));
+    image.style.left = px(Math.round(boardPadding - bounds.x * scale));
+    image.style.top = px(Math.round(boardPadding - bounds.y * scale));
+  };
+
+  const prepareImage = () => {
+    imageMetrics = imageAnalysisCache.get(activeSource) || analyzeImage();
+    imageAnalysisCache.set(activeSource, imageMetrics);
+    fitImage();
+  };
+
+  const open = (trigger) => {
+    window.clearTimeout(hideTimer);
+    activeTrigger = trigger;
+    activeSource = trigger.dataset.previewSrc;
+    imageMetrics = imageAnalysisCache.get(activeSource) || null;
+    media.classList.remove("has-transparency");
+    media.style.width = "";
+    media.style.height = "";
+    image.style.width = "";
+    image.style.height = "";
+    image.style.left = "";
+    image.style.top = "";
+    image.src = activeSource;
+    image.alt = trigger.dataset.previewAlt || "Portfolio artwork";
+    lightbox.hidden = false;
+    setPageInert(true);
+
+    window.requestAnimationFrame(() => {
+      lightbox.classList.add("is-open");
+      closeButton.focus({ preventScroll: true });
+    });
+  };
+
+  const close = () => {
+    if (lightbox.hidden) return;
+
+    const returnFocus = activeTrigger;
+    activeTrigger = null;
+    lightbox.classList.remove("is-open");
+    setPageInert(false);
+
+    hideTimer = window.setTimeout(() => {
+      if (lightbox.classList.contains("is-open")) return;
+      lightbox.hidden = true;
+      image.removeAttribute("src");
+      image.alt = "";
+    }, 180);
+
+    returnFocus?.focus({ preventScroll: true });
+  };
+
+  stage.addEventListener("click", (event) => {
+    const trigger = event.target.closest(".artwork-trigger");
+    if (trigger) open(trigger);
+  });
+
+  stage.addEventListener("keydown", (event) => {
+    const trigger = event.target.closest(".artwork-trigger");
+    if (!trigger || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    open(trigger);
+  });
+
+  lightbox.addEventListener("click", (event) => {
+    if (event.target === lightbox) close();
+  });
+  image.addEventListener("load", prepareImage);
+  closeButton.addEventListener("click", close);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !lightbox.hidden) close();
+  });
+  window.addEventListener("resize", () => {
+    if (!lightbox.hidden) fitImage();
+  }, { passive: true });
+};
+
 if (!design || !stage) {
   throw new Error(`Missing portfolio design data for ${pageName}`);
 }
@@ -127,5 +374,6 @@ const fragment = document.createDocumentFragment();
 design.layers.forEach((item) => fragment.append(renderLayer(item, assetRoot)));
 stage.append(fragment);
 
+createLightbox();
 fitStage();
 window.addEventListener("resize", fitStage, { passive: true });
