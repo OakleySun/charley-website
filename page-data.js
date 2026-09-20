@@ -221,7 +221,7 @@ window.portfolioDesigns = {
       R(717, 604, 82, 60, { background: "rgb(0 0 0 / 37%)" }),
       R(303, 40, 39, 109, { background: "rgb(0 0 0 / 25%)" }),
       T("*", 851, 628, 161, 394, 300, { font: "symbol", color: "rgb(0 0 0 / 32%)", lineHeight: 300 }),
-      T("All of my work is done freehand, without erasing and references.", 392, 444, 118, 54, 10.524, {
+      T("All of my work is done freehand, without erasing and references.", 392, 444, 118, 62, 10.524, {
         lineHeight: 15,
         letterSpacing: 0.4209,
         align: "right",
@@ -318,10 +318,9 @@ window.portfolioDesigns = {
       E("text-2d.png", 962, 454, 31, 24, "2d"),
       E("text-design-philosophy.png", 917, 34, 179, 28, "design philosophy"),
       E("text-3d.png", 232, 662, 31, 24, "3d"),
-      T("design skills should be transferrable regardless of what content the graphic is representing; therefore, my design endeavors range from professional, bold,", 920, 64, 205, 78, 9.179, {
+      T("design skills should be transferable regardless of what content the graphic is representing; therefore, my design endeavors range from professional and clean to experimental and more lively.", 920, 64, 222, 131, 10, {
         weight: 200,
-        lineHeight: 11,
-        letterSpacing: 0.3672,
+        letterSpacing: 0.4,
       }),
       S("imgImage12.png", 468, 215, 263.832, 349.343, "126.17%", "127.16%", "-12.29%", "-15.22%", A("Portrait of Charley")),
     ],
