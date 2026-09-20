@@ -197,9 +197,13 @@ const selectPriorityImages = (targetDesign) => {
 const prepareLinkedPages = () => {
   const pageByFile = {
     "index.html": "landing",
+    "graphic-design": "graphic-design",
     "graphic-design.html": "graphic-design",
+    "clubs": "clubs",
     "clubs.html": "clubs",
+    "tattoos": "tattoos",
     "tattoos.html": "tattoos",
+    "profile": "profile",
     "profile.html": "profile",
   };
   const warmedAssets = new Map();

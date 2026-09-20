@@ -30,19 +30,19 @@ window.portfolioDesigns = {
       E("text-charleys-portfolio.png", 660, 576, 206, 94, "Charley’s Portfolio"),
       E("text-latest-update.png", 663, 671, 103, 43, "latest update 9.16.26"),
       E("text-graphic-design-link.png", 325, 378, 89, 50, "graphic design", {
-        href: "graphic-design.html",
+        href: "/graphic-design",
         label: "Open graphic design page",
       }),
       E("text-clubs-link.png", 88, 595, 154, 50, "clubs & organizations", {
-        href: "clubs.html",
+        href: "/clubs",
         label: "Open clubs and organizations page",
       }),
       E("text-tattoos-link.png", 632, 188, 87, 24, "tattoos", {
-        href: "tattoos.html",
+        href: "/tattoos",
         label: "Open tattoos page",
       }),
       E("text-profile-link.png", 1066, 439, 74, 30, "profile", {
-        href: "profile.html",
+        href: "/profile",
         label: "Open profile page",
       }),
     ],
