@@ -1,14 +1,11 @@
 const pageName = document.body.dataset.page;
 const design = window.portfolioDesigns?.[pageName];
 const stage = document.querySelector(".stage");
-const screenElement = document.querySelector(".screen");
 
 const px = (value) => `${value}px`;
 const displayAssetName = (src) => src.replace(/\.[^.]+$/, ".display.webp");
 
 const applyBox = (element, item) => {
-  element.dataset.baseX = String(item.x);
-  element.dataset.baseWidth = String(item.w);
   element.style.left = px(item.x);
   element.style.top = px(item.y);
   element.style.width = px(item.w);
@@ -142,11 +139,6 @@ const createText = (item) => {
   element.style.letterSpacing = item.letterSpacing ? px(item.letterSpacing) : "0";
   element.style.textAlign = item.align || "left";
   element.style.color = item.color || "var(--ink)";
-  if (item.font !== "symbol") {
-    element.dataset.baseFontSize = String(item.size);
-    if (item.lineHeight) element.dataset.baseLineHeight = String(item.lineHeight);
-    if (item.letterSpacing) element.dataset.baseLetterSpacing = String(item.letterSpacing);
-  }
   applyBox(element, item);
   return element;
 };
@@ -166,9 +158,6 @@ const createLine = (item, assetRoot) => {
   image.style.height = px(item.thickness || 1);
   image.style.transform = `translate(-50%, -50%) rotate(${item.angle}deg)`;
   image.style.transformOrigin = "center";
-  image.dataset.baseLineCx = String(item.cx);
-  image.dataset.baseLineLength = String(item.length);
-  image.dataset.baseLineAngle = String(item.angle);
   if (item.opacity !== undefined) image.style.opacity = item.opacity;
   return image;
 };
@@ -185,63 +174,9 @@ const renderLayer = (item, assetRoot, priority = "low") => {
   return shape;
 };
 
-const DESIGN_WIDTH = 1200;
-const DESIGN_HEIGHT = 832;
-
-const scaleTextLayers = (scale) => {
-  stage.querySelectorAll(".text-layer[data-base-font-size]").forEach((element) => {
-    element.style.fontSize = px(Number(element.dataset.baseFontSize) * scale);
-    if (element.dataset.baseLineHeight) {
-      element.style.lineHeight = px(Number(element.dataset.baseLineHeight) * scale);
-    }
-    if (element.dataset.baseLetterSpacing) {
-      element.style.letterSpacing = px(Number(element.dataset.baseLetterSpacing) * scale);
-    }
-  });
-};
-
-const spreadLayers = (scale) => {
-  stage.querySelectorAll(".layer[data-base-x]").forEach((element) => {
-    const x = Number(element.dataset.baseX);
-    const width = Number(element.dataset.baseWidth);
-    element.style.left = px((x + width / 2) * scale - width / 2);
-  });
-
-  stage.querySelectorAll(".layer[data-base-line-cx]").forEach((element) => {
-    const centerX = Number(element.dataset.baseLineCx) * scale;
-    const length = Number(element.dataset.baseLineLength);
-    const angle = Number(element.dataset.baseLineAngle) * Math.PI / 180;
-    const deltaX = Math.cos(angle) * length * scale;
-    const deltaY = Math.sin(angle) * length;
-    const adjustedLength = Math.hypot(deltaX, deltaY);
-    const adjustedAngle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
-
-    element.style.left = px(centerX);
-    element.style.width = px(adjustedLength);
-    element.style.transform = `translate(-50%, -50%) rotate(${adjustedAngle}deg)`;
-  });
-};
-
 const fitStage = () => {
-  const viewport = window.visualViewport;
-  const width = screenElement.clientWidth || viewport?.width || window.innerWidth;
-  const height = screenElement.clientHeight || viewport?.height || window.innerHeight;
-  const scale = Math.min(width / DESIGN_WIDTH, height / DESIGN_HEIGHT);
-  const layoutWidth = width / scale;
-  const horizontalSpread = layoutWidth / DESIGN_WIDTH;
-  const scaledHeight = DESIGN_HEIGHT * scale;
-  const offsetY = Math.max(0, (height - scaledHeight) / 2);
-  const textScale = Math.min(1.1, Math.max(1, 1 + (1 - scale) * 0.45));
-  const uiScale = Math.min(1.2, Math.max(1, scale));
-  const rootStyle = document.documentElement.style;
-
-  rootStyle.setProperty("--stage-scale", String(scale));
-  rootStyle.setProperty("--stage-width", px(layoutWidth));
-  rootStyle.setProperty("--stage-offset-y", px(offsetY));
-  rootStyle.setProperty("--text-scale", String(textScale));
-  rootStyle.setProperty("--ui-scale", String(uiScale));
-  scaleTextLayers(textScale);
-  spreadLayers(horizontalSpread);
+  const scale = Math.min(window.innerWidth / 1200, window.innerHeight / 832);
+  document.documentElement.style.setProperty("--stage-scale", String(scale));
 };
 
 const selectPriorityImages = (targetDesign) => {
@@ -505,7 +440,7 @@ const createLightbox = () => {
   }, { passive: true });
 };
 
-if (!design || !stage || !screenElement) {
+if (!design || !stage) {
   throw new Error(`Missing portfolio design data for ${pageName}`);
 }
 
@@ -522,4 +457,3 @@ createLightbox();
 prepareLinkedPages();
 fitStage();
 window.addEventListener("resize", fitStage, { passive: true });
-window.visualViewport?.addEventListener("resize", fitStage, { passive: true });
