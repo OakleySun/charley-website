@@ -20,6 +20,10 @@
   --paper: #ffffff;
   --accent: #ea00ac;
   --stage-scale: 1;
+  --stage-width: 1200px;
+  --stage-offset-y: 0px;
+  --text-scale: 1;
+  --ui-scale: 1;
   --display: "Stack Sans Notch Embedded", "Stack Sans Notch", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --display-text: "Stack Sans Text Embedded", "Stack Sans Text", "Helvetica Neue", Arial, sans-serif;
   --body: "Poppins", Arial, sans-serif;
@@ -57,14 +61,14 @@ body {
 
 .stage {
   position: absolute;
-  top: 50%;
+  top: var(--stage-offset-y);
   left: 50%;
-  width: 1200px;
+  width: var(--stage-width);
   height: 832px;
   overflow: hidden;
   background: var(--paper);
-  transform: translate(-50%, -50%) scale(var(--stage-scale));
-  transform-origin: center;
+  transform: translateX(-50%) scale(var(--stage-scale));
+  transform-origin: top center;
 }
 
 .layer {
@@ -125,7 +129,7 @@ img.layer {
 }
 
 .text-layer {
-  overflow: hidden;
+  overflow: visible;
   font-family: var(--body);
   overflow-wrap: break-word;
 }
@@ -277,7 +281,8 @@ img.layer {
   background: rgb(255 255 255 / 88%);
   box-shadow: 0 6px 24px rgb(0 0 0 / 7%);
   backdrop-filter: blur(10px);
-  transform: translateX(-50%);
+  transform: translateX(-50%) scale(var(--ui-scale));
+  transform-origin: top center;
 }
 
 .site-nav-home {
