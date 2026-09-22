@@ -146,6 +146,16 @@ img.layer {
   font-style: italic;
 }
 
+.text-layer .profile-list {
+  margin: 0;
+  padding-left: 15px;
+}
+
+.text-layer .profile-list li {
+  margin: 0;
+  padding: 0;
+}
+
 .page-link {
   color: var(--ink);
   text-decoration: none;
@@ -281,13 +291,7 @@ img.layer {
 }
 
 .site-nav-home {
-  opacity: 0.18;
-  transition: opacity 150ms ease;
-}
-
-.site-nav-home:hover,
-.site-nav-home:focus-within {
-  opacity: 1;
+  display: none;
 }
 
 .site-nav a {
@@ -347,10 +351,6 @@ noscript {
     left: 8px;
     justify-content: space-evenly;
     transform: none;
-  }
-
-  .site-nav-home {
-    opacity: 0.9;
   }
 
   .site-nav a {

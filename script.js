@@ -62,9 +62,26 @@ const createImage = (item, assetRoot, priority) => {
   if (item.sprite) {
     const frame = document.createElement("div");
     const image = document.createElement("img");
-    frame.className = "layer sprite-layer";
-    Object.assign(image.style, item.sprite);
-    frame.append(image);
+    frame.className = item.inner ? "layer" : "layer sprite-layer";
+
+    if (item.inner) {
+      const crop = document.createElement("div");
+      crop.className = "sprite-layer";
+      crop.style.position = "absolute";
+      crop.style.top = "50%";
+      crop.style.left = "50%";
+      crop.style.width = px(item.inner.w);
+      crop.style.height = px(item.inner.h);
+      crop.style.transform = `translate(-50%, -50%) rotate(${item.inner.rotate || 0}deg)`;
+      crop.style.transformOrigin = "center";
+      Object.assign(image.style, item.sprite);
+      crop.append(image);
+      frame.append(crop);
+    } else {
+      Object.assign(image.style, item.sprite);
+      frame.append(image);
+    }
+
     applyBox(frame, item);
     loadDisplayImage(image, frame, item, assetRoot, priority);
     return makePreviewable(frame, item, assetRoot);
