@@ -38,6 +38,8 @@ body {
 
 html {
   background: var(--paper);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -125,7 +127,7 @@ img.layer {
 }
 
 .text-layer {
-  overflow: hidden;
+  overflow: visible;
   font-family: var(--body);
   overflow-wrap: break-word;
 }
@@ -184,6 +186,16 @@ img.layer {
   scale: 1.045;
 }
 
+.preview-group-member {
+  transition: opacity 180ms ease, scale 160ms ease;
+}
+
+.stage:has([data-preview-group="hellohacks-app"]:hover) [data-preview-group="hellohacks-app"],
+.stage:has([data-preview-group="hellohacks-app"]:focus-visible) [data-preview-group="hellohacks-app"] {
+  z-index: 20;
+  scale: 1.045;
+}
+
 .artwork-trigger:focus-visible,
 .page-link:focus-visible {
   outline: 2px solid var(--accent);
@@ -228,6 +240,20 @@ img.layer {
   max-width: none;
   max-height: none;
   object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.lightbox-composite {
+  position: absolute;
+  user-select: none;
+}
+
+.lightbox-composite > img {
+  position: absolute;
+  display: block;
+  max-width: none;
+  max-height: none;
   user-select: none;
   -webkit-user-drag: none;
 }

@@ -20,6 +20,14 @@ const applyBox = (element, item) => {
 };
 
 const makePreviewable = (element, item, assetRoot) => {
+  if (item.previewGroup) {
+    element.classList.add("preview-group-member");
+    element.dataset.previewGroup = item.previewGroup;
+    if (item.previewGroupOrigin) {
+      element.style.transformOrigin = `${item.previewGroupOrigin.x - item.x}px ${item.previewGroupOrigin.y - item.y}px`;
+    }
+  }
+
   if (!item.preview) return element;
 
   const alt = item.alt || "Portfolio artwork";
@@ -31,6 +39,12 @@ const makePreviewable = (element, item, assetRoot) => {
   element.setAttribute("aria-controls", "artwork-lightbox");
   element.dataset.previewSrc = `${assetRoot}/${item.previewSrc || item.src}`;
   element.dataset.previewAlt = alt;
+  if (item.previewLayers) {
+    element.dataset.previewLayers = JSON.stringify(item.previewLayers.map((layer) => ({
+      ...layer,
+      src: `${assetRoot}/${layer.src}`,
+    })));
+  }
   return element;
 };
 
@@ -251,10 +265,12 @@ const createLightbox = () => {
   const lightbox = document.createElement("div");
   const media = document.createElement("div");
   const image = document.createElement("img");
+  const composite = document.createElement("div");
   const closeButton = document.createElement("button");
   const imageAnalysisCache = new Map();
   let activeTrigger = null;
   let activeSource = "";
+  let activeLayers = null;
   let imageMetrics = null;
   let hideTimer = null;
 
@@ -270,12 +286,16 @@ const createLightbox = () => {
   image.decoding = "async";
   image.draggable = false;
 
+  composite.className = "lightbox-composite";
+  composite.hidden = true;
+  composite.setAttribute("role", "img");
+
   closeButton.className = "lightbox-close";
   closeButton.type = "button";
   closeButton.title = "Close image";
   closeButton.setAttribute("aria-label", "Close enlarged image");
 
-  media.append(image);
+  media.append(image, composite);
   lightbox.append(media, closeButton);
   document.body.append(lightbox);
 
@@ -353,6 +373,40 @@ const createLightbox = () => {
   };
 
   const fitImage = () => {
+    if (activeLayers) {
+      const left = Math.min(...activeLayers.map((layer) => layer.x));
+      const top = Math.min(...activeLayers.map((layer) => layer.y));
+      const right = Math.max(...activeLayers.map((layer) => layer.x + layer.w));
+      const bottom = Math.max(...activeLayers.map((layer) => layer.y + layer.h));
+      const width = right - left;
+      const height = bottom - top;
+      const maxWidth = Math.min(window.innerWidth * 0.92, 1200);
+      const maxHeight = window.innerHeight * 0.86;
+      const boardPadding = Math.round(Math.min(26, Math.max(12, window.innerWidth * 0.015)));
+      const scale = Math.min(
+        (maxWidth - boardPadding * 2) / width,
+        (maxHeight - boardPadding * 2) / height,
+        6,
+      );
+
+      media.classList.add("has-transparency");
+      media.style.width = px(Math.round(width * scale + boardPadding * 2));
+      media.style.height = px(Math.round(height * scale + boardPadding * 2));
+      composite.style.left = px(boardPadding);
+      composite.style.top = px(boardPadding);
+      composite.style.width = px(Math.round(width * scale));
+      composite.style.height = px(Math.round(height * scale));
+
+      [...composite.children].forEach((layerImage, index) => {
+        const layer = activeLayers[index];
+        layerImage.style.left = px(Math.round((layer.x - left) * scale));
+        layerImage.style.top = px(Math.round((layer.y - top) * scale));
+        layerImage.style.width = px(Math.round(layer.w * scale));
+        layerImage.style.height = px(Math.round(layer.h * scale));
+      });
+      return;
+    }
+
     if (!image.naturalWidth || !image.naturalHeight) return;
 
     const bounds = imageMetrics || {
@@ -394,8 +448,11 @@ const createLightbox = () => {
   const open = (trigger) => {
     window.clearTimeout(hideTimer);
     activeTrigger = trigger;
-    activeSource = trigger.dataset.previewSrc;
-    imageMetrics = imageAnalysisCache.get(activeSource) || null;
+    activeLayers = trigger.dataset.previewLayers
+      ? JSON.parse(trigger.dataset.previewLayers)
+      : null;
+    activeSource = activeLayers ? "" : trigger.dataset.previewSrc;
+    imageMetrics = activeSource ? imageAnalysisCache.get(activeSource) || null : null;
     media.classList.remove("has-transparency");
     media.style.width = "";
     media.style.height = "";
@@ -403,8 +460,30 @@ const createLightbox = () => {
     image.style.height = "";
     image.style.left = "";
     image.style.top = "";
-    image.src = activeSource;
-    image.alt = trigger.dataset.previewAlt || "Portfolio artwork";
+    composite.replaceChildren();
+
+    if (activeLayers) {
+      image.hidden = true;
+      image.removeAttribute("src");
+      image.alt = "";
+      composite.hidden = false;
+      composite.setAttribute("aria-label", trigger.dataset.previewAlt || "Portfolio artwork");
+      activeLayers.forEach((layer) => {
+        const layerImage = document.createElement("img");
+        layerImage.alt = "";
+        layerImage.decoding = "async";
+        layerImage.draggable = false;
+        layerImage.src = layer.src;
+        composite.append(layerImage);
+      });
+      fitImage();
+    } else {
+      composite.hidden = true;
+      composite.removeAttribute("aria-label");
+      image.hidden = false;
+      image.src = activeSource;
+      image.alt = trigger.dataset.previewAlt || "Portfolio artwork";
+    }
     lightbox.hidden = false;
     setPageInert(true);
 
@@ -419,6 +498,7 @@ const createLightbox = () => {
 
     const returnFocus = activeTrigger;
     activeTrigger = null;
+    activeLayers = null;
     lightbox.classList.remove("is-open");
     setPageInert(false);
 
@@ -427,6 +507,7 @@ const createLightbox = () => {
       lightbox.hidden = true;
       image.removeAttribute("src");
       image.alt = "";
+      composite.replaceChildren();
     }, 180);
 
     returnFocus?.focus({ preventScroll: true });
