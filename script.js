@@ -20,6 +20,10 @@ const applyBox = (element, item) => {
 };
 
 const makePreviewable = (element, item, assetRoot) => {
+  if (item.preview || item.previewGroup) {
+    element.addEventListener("pointerleave", () => element.classList.remove("preview-return-hover"));
+  }
+
   if (item.previewGroup) {
     element.classList.add("preview-group-member");
     element.dataset.previewGroup = item.previewGroup;
@@ -32,6 +36,7 @@ const makePreviewable = (element, item, assetRoot) => {
 
   const alt = item.alt || "Portfolio artwork";
   element.classList.add("artwork-trigger");
+  element.addEventListener("blur", () => element.classList.remove("preview-return-focus"));
   element.tabIndex = 0;
   element.setAttribute("role", "button");
   element.setAttribute("aria-label", `View larger: ${alt}`);
@@ -388,6 +393,11 @@ const createLightbox = () => {
         (maxWidth - boardPadding * 2) / width,
         (maxHeight - boardPadding * 2) / height,
         6,
+        ...[...composite.children].map((layerImage, index) => {
+          if (!layerImage.naturalWidth) return Infinity;
+          const layer = activeLayers[index];
+          return Math.min(layerImage.naturalWidth / layer.w, layerImage.naturalHeight / layer.h);
+        }),
       );
 
       media.classList.add("has-transparency");
@@ -427,8 +437,7 @@ const createLightbox = () => {
     const scale = Math.min(
       availableWidth / bounds.width,
       availableHeight / bounds.height,
-      bounds.transparent ? 6 : 4,
-      6000 / Math.max(image.naturalWidth, image.naturalHeight),
+      1,
     );
 
     media.classList.toggle("has-transparency", bounds.transparent);
@@ -448,6 +457,7 @@ const createLightbox = () => {
 
   const open = (trigger) => {
     window.clearTimeout(hideTimer);
+    trigger.classList.remove("preview-return-focus", "preview-return-hover");
     activeTrigger = trigger;
     activeLayers = trigger.dataset.previewLayers
       ? JSON.parse(trigger.dataset.previewLayers)
@@ -474,6 +484,9 @@ const createLightbox = () => {
         layerImage.alt = "";
         layerImage.decoding = "async";
         layerImage.draggable = false;
+        layerImage.addEventListener("load", () => {
+          if (activeLayers && layerImage.parentElement === composite) fitImage();
+        }, { once: true });
         layerImage.src = layer.src;
         composite.append(layerImage);
       });
@@ -511,7 +524,16 @@ const createLightbox = () => {
       composite.replaceChildren();
     }, 180);
 
-    returnFocus?.focus({ preventScroll: true });
+    if (returnFocus) {
+      // Restore keyboard position without reactivating the artwork's hover/focus styling.
+      returnFocus.classList.add("preview-return-focus");
+      const group = returnFocus.dataset.previewGroup;
+      const members = group
+        ? [...stage.querySelectorAll("[data-preview-group]")].filter((member) => member.dataset.previewGroup === group)
+        : [returnFocus];
+      members.forEach((member) => member.classList.add("preview-return-hover"));
+      returnFocus.focus({ preventScroll: true });
+    }
   };
 
   stage.addEventListener("click", (event) => {

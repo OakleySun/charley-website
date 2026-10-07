@@ -186,8 +186,8 @@ img.layer {
   transition: opacity 180ms ease, scale 160ms ease;
 }
 
-.artwork-trigger:hover,
-.artwork-trigger:focus-visible {
+.artwork-trigger:hover:not(.preview-return-hover),
+.artwork-trigger:focus-visible:not(.preview-return-focus) {
   z-index: 20;
   scale: 1.045;
 }
@@ -196,16 +196,20 @@ img.layer {
   transition: opacity 180ms ease, scale 160ms ease;
 }
 
-.stage:has([data-preview-group="hellohacks-app"]:hover) [data-preview-group="hellohacks-app"],
-.stage:has([data-preview-group="hellohacks-app"]:focus-visible) [data-preview-group="hellohacks-app"] {
+.stage:has([data-preview-group="hellohacks-app"]:hover:not(.preview-return-hover)) [data-preview-group="hellohacks-app"],
+.stage:has([data-preview-group="hellohacks-app"]:focus-visible:not(.preview-return-focus)) [data-preview-group="hellohacks-app"] {
   z-index: 20;
   scale: 1.045;
 }
 
-.artwork-trigger:focus-visible,
+.artwork-trigger:focus-visible:not(.preview-return-focus),
 .page-link:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
+}
+
+.artwork-trigger.preview-return-focus {
+  outline: none;
 }
 
 .lightbox {
