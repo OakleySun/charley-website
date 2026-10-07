@@ -96,6 +96,7 @@ const createImage = (item, assetRoot, priority) => {
       frame.append(image);
     }
 
+    image.style.height = "auto";
     applyBox(frame, item);
     loadDisplayImage(image, frame, item, assetRoot, priority);
     return makePreviewable(frame, item, assetRoot);

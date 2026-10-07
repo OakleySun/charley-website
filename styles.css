@@ -112,6 +112,7 @@ img.layer {
 
 .effect-text-image {
   max-width: none;
+  object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -156,6 +157,11 @@ img.layer {
 .text-layer .profile-list li {
   margin: 0;
   padding: 0;
+}
+
+.text-layer .japanese {
+  font-family: "Noto Serif JP", serif;
+  font-weight: 200;
 }
 
 .page-link {
@@ -254,6 +260,7 @@ img.layer {
   display: block;
   max-width: none;
   max-height: none;
+  object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
 }
