@@ -346,12 +346,12 @@ window.portfolioDesigns = {
         weight: 200,
         letterSpacing: 0.4,
       }),
-      I("imgImage12.png", 468, 213, 263.832, 349.343, A("Portrait of Charley", { fit: "contain", previewSrc: "imgImage12.preview.png" })),
-      I("imgPufferTankScreenshot1290359Edited1.png", 50, 453, 72, 72, A("Puffer tank clothing render")),
-      I("imgPearlGirlScreenshot1290346Edited1.png", 20, 521, 75, 75, A("Pearl girl clothing render")),
+      I("imgImage12.png", 468, 213, 263.832, 349.343, A("Portrait of Charley", { fit: "contain", previewSrc: "imgImage12.original.png" })),
+      I("imgPufferTankScreenshot1290359Edited1.png", 50, 453, 72, 72, A("Puffer tank clothing render", { previewSrc: "imgPufferTankScreenshot1290359Edited1.original.png" })),
+      I("imgPearlGirlScreenshot1290346Edited1.png", 20, 521, 75, 75, A("Pearl girl clothing render", { previewSrc: "imgPearlGirlScreenshot1290346Edited1.original.png" })),
       L("imgLine11.svg", 303.5, 209.5, 207.562, 16.51, { thickness: 0.259 }),
       // This canvas-level image includes its exported shadow bounds.
-      I("imgImage60.png", 103, 508, 90, 86, A("Purple 3D render (Image 60)", { fit: "contain", previewSrc: "imgImage60.preview.png" })),
+      I("imgImage60.png", 103, 508, 90, 86, A("Purple 3D render (Image 60)", { fit: "contain", previewSrc: "imgImage60.original.png" })),
     ],
   },
 };
