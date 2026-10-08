@@ -282,7 +282,21 @@ const createLightbox = () => {
   const image = document.createElement("img");
   const composite = document.createElement("div");
   const closeButton = document.createElement("button");
+  const previousButton = document.createElement("button");
+  const nextButton = document.createElement("button");
+  const announcement = document.createElement("div");
   const imageAnalysisCache = new Map();
+  const neighboringImages = new Map();
+  const seenGroups = new Set();
+  const gallery = [...stage.querySelectorAll(".artwork-trigger")]
+    .sort((a, b) => a.offsetTop - b.offsetTop || a.offsetLeft - b.offsetLeft)
+    .filter((trigger) => {
+      const group = trigger.dataset.previewGroup;
+      if (!group) return true;
+      if (seenGroups.has(group)) return false;
+      seenGroups.add(group);
+      return true;
+    });
   let activeTrigger = null;
   let activeSource = "";
   let activeLayers = null;
@@ -295,6 +309,8 @@ const createLightbox = () => {
   let motion = null;
   let openingFrame = null;
   let requestId = 0;
+  let galleryIndex = -1;
+  let navigationDirection = 0;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const motionOptions = { duration: 360, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both" };
 
@@ -320,9 +336,30 @@ const createLightbox = () => {
   closeButton.title = "Close image";
   closeButton.setAttribute("aria-label", "Close enlarged image");
 
+  [previousButton, nextButton].forEach((button, index) => {
+    const previous = index === 0;
+    const icon = document.createElement("img");
+    button.className = `lightbox-nav lightbox-${previous ? "previous" : "next"}`;
+    button.type = "button";
+    button.title = previous ? "Previous image" : "Next image";
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-keyshortcuts", previous ? "ArrowLeft" : "ArrowRight");
+    button.hidden = gallery.length < 2;
+    icon.src = `assets/icons/chevron-${previous ? "left" : "right"}.svg`;
+    icon.alt = "";
+    icon.width = 24;
+    icon.height = 24;
+    icon.draggable = false;
+    button.append(icon);
+  });
+  announcement.className = "lightbox-announcement";
+  announcement.setAttribute("role", "status");
+  announcement.setAttribute("aria-live", "polite");
+  announcement.setAttribute("aria-atomic", "true");
+
   cropFrame.append(image);
   media.append(cropFrame, composite);
-  lightbox.append(media, closeButton);
+  lightbox.append(media, previousButton, nextButton, closeButton, announcement);
   document.body.append(lightbox);
 
   const setPageInert = (inert) => {
@@ -335,6 +372,35 @@ const createLightbox = () => {
   const setPhase = (nextPhase) => {
     phase = nextPhase;
     lightbox.dataset.state = nextPhase;
+    lightbox.setAttribute("aria-busy", String(nextPhase === "loading"));
+  };
+
+  const preloadNeighbors = () => {
+    const sources = new Set();
+    for (const offset of [-1, 0, 1]) {
+      const trigger = gallery[(galleryIndex + offset + gallery.length) % gallery.length];
+      if (trigger.dataset.previewLayers) {
+        JSON.parse(trigger.dataset.previewLayers).forEach((layer) => sources.add(layer.src));
+      } else sources.add(trigger.dataset.previewSrc);
+    }
+    for (const source of neighboringImages.keys()) {
+      if (!sources.has(source)) neighboringImages.delete(source);
+    }
+    for (const source of sources) {
+      if (neighboringImages.has(source)) continue;
+      const preload = new Image();
+      preload.decoding = "async";
+      preload.fetchPriority = "low";
+      preload.src = source;
+      neighboringImages.set(source, preload);
+    }
+  };
+
+  const previewMaxWidth = () => {
+    const gutter = gallery.length > 1
+      ? parseFloat(window.getComputedStyle(lightbox).getPropertyValue("--lightbox-side-gap"))
+      : 0;
+    return Math.max(1, Math.min(window.innerWidth * 0.92, 1200, window.innerWidth - gutter * 2));
   };
 
   const getSourceRect = () => {
@@ -368,10 +434,14 @@ const createLightbox = () => {
   const revealImage = () => {
     if (phase !== "loading") return;
     fitImage();
-    const from = sourceTransform(sourceRect);
+    const from = navigationDirection
+      ? `translateX(${navigationDirection * 24}px)`
+      : sourceTransform(sourceRect);
     activeMembers.forEach((member) => member.classList.add("preview-in-lightbox"));
     media.style.visibility = "visible";
     setPhase("opening");
+    announcement.textContent = `${galleryIndex + 1} of ${gallery.length}: ${activeTrigger.dataset.previewAlt}`;
+    preloadNeighbors();
 
     if (reducedMotion.matches || !media.animate) {
       setPhase("open");
@@ -379,9 +449,9 @@ const createLightbox = () => {
     }
 
     const animation = media.animate([
-      { transform: from },
-      { transform: "none" },
-    ], motionOptions);
+      { transform: from, opacity: navigationDirection ? 0 : 1 },
+      { transform: "none", opacity: 1 },
+    ], { ...motionOptions, duration: navigationDirection ? 180 : motionOptions.duration });
     motion = animation;
     animation.finished.then(() => {
       if (motion !== animation) return;
@@ -465,7 +535,7 @@ const createLightbox = () => {
       const bottom = Math.max(...activeLayers.map((layer) => layer.y + layer.h));
       const width = right - left;
       const height = bottom - top;
-      const maxWidth = Math.min(window.innerWidth * 0.92, 1200);
+      const maxWidth = previewMaxWidth();
       const maxHeight = window.innerHeight * 0.86;
       const boardPadding = Math.round(Math.min(26, Math.max(12, window.innerWidth * 0.015)));
       const scale = Math.min(
@@ -510,7 +580,7 @@ const createLightbox = () => {
           image.naturalHeight / content.h,
         );
       const scale = Math.min(
-        Math.min(window.innerWidth * 0.92, 1200) / box.w,
+        previewMaxWidth() / box.w,
         window.innerHeight * 0.86 / box.h,
         nativeScale,
       );
@@ -552,7 +622,7 @@ const createLightbox = () => {
       height: image.naturalHeight,
       transparent: false,
     };
-    const maxWidth = Math.min(window.innerWidth * 0.92, 1200);
+    const maxWidth = previewMaxWidth();
     const maxHeight = window.innerHeight * 0.86;
     const boardPadding = bounds.transparent
       ? Math.round(Math.min(26, Math.max(12, window.innerWidth * 0.015)))
@@ -588,9 +658,19 @@ const createLightbox = () => {
     revealImage();
   };
 
-  const open = (trigger) => {
-    if (phase !== "closed") return;
+  const open = (trigger, direction = 0) => {
+    if (direction) {
+      if (phase === "closed" || phase === "closing") return;
+      cancelMotion();
+      activeMembers.forEach((member) => {
+        member.classList.remove("preview-in-lightbox");
+        member.classList.add("preview-return-hover");
+      });
+    } else if (phase !== "closed") return;
     const id = ++requestId;
+    navigationDirection = direction;
+    galleryIndex = gallery.findIndex((candidate) => candidate === trigger
+      || (trigger.dataset.previewGroup && candidate.dataset.previewGroup === trigger.dataset.previewGroup));
     trigger.classList.remove("preview-return-focus", "preview-return-hover");
     activeTrigger = trigger;
     const group = trigger.dataset.previewGroup;
@@ -652,6 +732,11 @@ const createLightbox = () => {
       image.hidden = false;
       image.src = activeSource;
       image.alt = trigger.dataset.previewAlt || "Portfolio artwork";
+      if (image.complete && image.naturalWidth) {
+        Promise.resolve(image.decode?.()).catch(() => {}).then(() => {
+          if (id === requestId) prepareImage();
+        });
+      }
     }
     lightbox.hidden = false;
     setPageInert(true);
@@ -660,8 +745,14 @@ const createLightbox = () => {
       openingFrame = null;
       if (id !== requestId || phase === "closed" || phase === "closing") return;
       lightbox.classList.add("is-open");
-      closeButton.focus({ preventScroll: true });
+      if (!direction) closeButton.focus({ preventScroll: true });
     });
+  };
+
+  const navigate = (direction) => {
+    if (gallery.length < 2 || phase === "closed" || phase === "closing") return;
+    const index = (galleryIndex + direction + gallery.length) % gallery.length;
+    open(gallery[index], direction);
   };
 
   const finishClose = () => {
@@ -678,6 +769,7 @@ const createLightbox = () => {
     image.removeAttribute("src");
     image.alt = "";
     composite.replaceChildren();
+    announcement.textContent = "";
     setPhase("closed");
     setPageInert(false);
 
@@ -698,6 +790,7 @@ const createLightbox = () => {
     ++requestId;
     const ready = phase !== "loading";
     const from = window.getComputedStyle(media).transform;
+    const fromOpacity = window.getComputedStyle(media).opacity;
     cancelMotion();
     lightbox.classList.remove("is-open");
     setPhase("closing");
@@ -709,8 +802,8 @@ const createLightbox = () => {
 
     const to = sourceTransform(getSourceRect());
     const animation = media.animate([
-      { transform: from },
-      { transform: to },
+      { transform: from, opacity: fromOpacity },
+      { transform: to, opacity: 1 },
     ], motionOptions);
     motion = animation;
     animation.finished.then(() => {
@@ -749,8 +842,26 @@ const createLightbox = () => {
     if (phase === "loading") close();
   });
   closeButton.addEventListener("click", close);
+  previousButton.addEventListener("click", () => navigate(-1));
+  nextButton.addEventListener("click", () => navigate(1));
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !lightbox.hidden) close();
+    if (lightbox.hidden) return;
+    if (event.key === "Escape") close();
+    else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      navigate(event.key === "ArrowLeft" ? -1 : 1);
+    } else if (event.key === "Tab") {
+      const controls = [previousButton, nextButton, closeButton].filter((button) => !button.hidden);
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
+    }
   });
   window.addEventListener("resize", () => {
     if (phase === "closed" || phase === "loading") return;
