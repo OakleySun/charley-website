@@ -44,6 +44,14 @@ const makePreviewable = (element, item, assetRoot) => {
   element.setAttribute("aria-controls", "artwork-lightbox");
   element.dataset.previewSrc = `${assetRoot}/${item.previewSrc || item.src}`;
   element.dataset.previewAlt = alt;
+  element.dataset.previewBox = JSON.stringify({
+    w: item.w,
+    h: item.h,
+    sprite: item.sprite,
+    inner: item.inner,
+    fit: item.fit || "cover",
+    position: item.position || "center",
+  });
   if (item.previewLayers) {
     element.dataset.previewLayers = JSON.stringify(item.previewLayers.map((layer) => ({
       ...layer,
@@ -270,6 +278,7 @@ const prepareLinkedPages = () => {
 const createLightbox = () => {
   const lightbox = document.createElement("div");
   const media = document.createElement("div");
+  const cropFrame = document.createElement("div");
   const image = document.createElement("img");
   const composite = document.createElement("div");
   const closeButton = document.createElement("button");
@@ -277,8 +286,17 @@ const createLightbox = () => {
   let activeTrigger = null;
   let activeSource = "";
   let activeLayers = null;
+  let previewBox = null;
+  let activeCrop = null;
   let imageMetrics = null;
-  let hideTimer = null;
+  let activeMembers = [];
+  let sourceRect = null;
+  let phase = "closed";
+  let motion = null;
+  let openingFrame = null;
+  let requestId = 0;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const motionOptions = { duration: 360, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both" };
 
   lightbox.className = "lightbox";
   lightbox.id = "artwork-lightbox";
@@ -288,6 +306,7 @@ const createLightbox = () => {
   lightbox.setAttribute("aria-label", "Enlarged portfolio image");
 
   media.className = "lightbox-media";
+  cropFrame.className = "lightbox-crop";
   image.className = "lightbox-image";
   image.decoding = "async";
   image.draggable = false;
@@ -301,7 +320,8 @@ const createLightbox = () => {
   closeButton.title = "Close image";
   closeButton.setAttribute("aria-label", "Close enlarged image");
 
-  media.append(image, composite);
+  cropFrame.append(image);
+  media.append(cropFrame, composite);
   lightbox.append(media, closeButton);
   document.body.append(lightbox);
 
@@ -310,6 +330,65 @@ const createLightbox = () => {
     const navigation = document.querySelector(".site-nav");
     screen?.toggleAttribute("inert", inert);
     navigation?.toggleAttribute("inert", inert);
+  };
+
+  const setPhase = (nextPhase) => {
+    phase = nextPhase;
+    lightbox.dataset.state = nextPhase;
+  };
+
+  const getSourceRect = () => {
+    const rects = activeMembers.map((member) => member.getBoundingClientRect());
+    const left = Math.min(...rects.map((rect) => rect.left));
+    const top = Math.min(...rects.map((rect) => rect.top));
+    const right = Math.max(...rects.map((rect) => rect.right));
+    const bottom = Math.max(...rects.map((rect) => rect.bottom));
+    return { left, top, width: right - left, height: bottom - top };
+  };
+
+  const sourceTransform = (rect) => {
+    const target = (activeLayers ? composite : activeCrop ? media : image).getBoundingClientRect();
+    const frame = media.getBoundingClientRect();
+    // Use a uniform scale so the artwork never stretches during its journey.
+    const scale = Math.min(rect.width / target.width, rect.height / target.height);
+    const x = rect.left + rect.width / 2 - frame.left - frame.width / 2
+      - (target.left + target.width / 2 - frame.left - frame.width / 2) * scale;
+    const y = rect.top + rect.height / 2 - frame.top - frame.height / 2
+      - (target.top + target.height / 2 - frame.top - frame.height / 2) * scale;
+    return `translate(${x}px, ${y}px) scale(${scale})`;
+  };
+
+  const cancelMotion = () => {
+    motion?.cancel();
+    motion = null;
+    window.cancelAnimationFrame(openingFrame);
+    openingFrame = null;
+  };
+
+  const revealImage = () => {
+    if (phase !== "loading") return;
+    fitImage();
+    const from = sourceTransform(sourceRect);
+    activeMembers.forEach((member) => member.classList.add("preview-in-lightbox"));
+    media.style.visibility = "visible";
+    setPhase("opening");
+
+    if (reducedMotion.matches || !media.animate) {
+      setPhase("open");
+      return;
+    }
+
+    const animation = media.animate([
+      { transform: from },
+      { transform: "none" },
+    ], motionOptions);
+    motion = animation;
+    animation.finished.then(() => {
+      if (motion !== animation) return;
+      animation.cancel();
+      motion = null;
+      setPhase("open");
+    }, () => {});
   };
 
   const analyzeImage = () => {
@@ -420,6 +499,52 @@ const createLightbox = () => {
 
     if (!image.naturalWidth || !image.naturalHeight) return;
 
+    // Enlarge the existing crop frame and offsets instead of revealing the whole source.
+    if (activeCrop) {
+      const box = activeCrop;
+      const content = box.inner || box;
+      const nativeScale = box.sprite
+        ? image.naturalWidth / (content.w * parseFloat(box.sprite.width) / 100)
+        : (box.fit === "contain" ? Math.max : Math.min)(
+          image.naturalWidth / content.w,
+          image.naturalHeight / content.h,
+        );
+      const scale = Math.min(
+        Math.min(window.innerWidth * 0.92, 1200) / box.w,
+        window.innerHeight * 0.86 / box.h,
+        nativeScale,
+      );
+
+      media.style.width = px(box.w * scale);
+      media.style.height = px(box.h * scale);
+      image.style.objectFit = box.fit;
+      image.style.objectPosition = box.position;
+
+      if (box.sprite) {
+        if (box.inner) {
+          cropFrame.style.left = "50%";
+          cropFrame.style.top = "50%";
+          cropFrame.style.width = px(content.w * scale);
+          cropFrame.style.height = px(content.h * scale);
+          cropFrame.style.transform = `translate(-50%, -50%) rotate(${content.rotate || 0}deg)`;
+        }
+        Object.assign(image.style, box.sprite);
+        image.style.height = "auto";
+      } else if (box.inner) {
+        image.style.left = "50%";
+        image.style.top = "50%";
+        image.style.width = px(content.w * scale);
+        image.style.height = px(content.h * scale);
+        image.style.transform = `translate(-50%, -50%) rotate(${content.rotate || 0}deg)`;
+      } else {
+        image.style.left = "0";
+        image.style.top = "0";
+        image.style.width = "100%";
+        image.style.height = "100%";
+      }
+      return;
+    }
+
     const bounds = imageMetrics || {
       x: 0,
       y: 0,
@@ -450,19 +575,37 @@ const createLightbox = () => {
   };
 
   const prepareImage = () => {
-    imageMetrics = imageAnalysisCache.get(activeSource) || analyzeImage();
-    imageAnalysisCache.set(activeSource, imageMetrics);
-    fitImage();
+    if (phase !== "loading" || activeLayers || !image.naturalWidth) return;
+    const croppedAspect = previewBox && Math.abs(
+      (image.naturalWidth / image.naturalHeight) / (previewBox.w / previewBox.h) - 1,
+    ) > 0.005;
+    activeCrop = previewBox && (previewBox.sprite || previewBox.inner
+      || (previewBox.fit === "cover" && croppedAspect)) ? previewBox : null;
+    if (!activeCrop) {
+      imageMetrics = imageAnalysisCache.get(activeSource) || analyzeImage();
+      imageAnalysisCache.set(activeSource, imageMetrics);
+    }
+    revealImage();
   };
 
   const open = (trigger) => {
-    window.clearTimeout(hideTimer);
+    if (phase !== "closed") return;
+    const id = ++requestId;
     trigger.classList.remove("preview-return-focus", "preview-return-hover");
     activeTrigger = trigger;
+    const group = trigger.dataset.previewGroup;
+    activeMembers = group
+      ? [...stage.querySelectorAll("[data-preview-group]")].filter((member) => member.dataset.previewGroup === group)
+      : [trigger];
+    sourceRect = getSourceRect();
+    setPhase("loading");
+    media.style.visibility = "hidden";
     activeLayers = trigger.dataset.previewLayers
       ? JSON.parse(trigger.dataset.previewLayers)
       : null;
     activeSource = activeLayers ? "" : trigger.dataset.previewSrc;
+    previewBox = trigger.dataset.previewBox ? JSON.parse(trigger.dataset.previewBox) : null;
+    activeCrop = null;
     imageMetrics = activeSource ? imageAnalysisCache.get(activeSource) || null : null;
     media.classList.remove("has-transparency");
     media.style.width = "";
@@ -471,6 +614,14 @@ const createLightbox = () => {
     image.style.height = "";
     image.style.left = "";
     image.style.top = "";
+    image.style.transform = "";
+    image.style.objectFit = "contain";
+    image.style.objectPosition = "center";
+    cropFrame.style.left = "";
+    cropFrame.style.top = "";
+    cropFrame.style.width = "";
+    cropFrame.style.height = "";
+    cropFrame.style.transform = "";
     composite.replaceChildren();
 
     if (activeLayers) {
@@ -479,18 +630,22 @@ const createLightbox = () => {
       image.alt = "";
       composite.hidden = false;
       composite.setAttribute("aria-label", trigger.dataset.previewAlt || "Portfolio artwork");
-      activeLayers.forEach((layer) => {
+      const readyImages = activeLayers.map((layer) => {
         const layerImage = document.createElement("img");
         layerImage.alt = "";
         layerImage.decoding = "async";
         layerImage.draggable = false;
-        layerImage.addEventListener("load", () => {
-          if (activeLayers && layerImage.parentElement === composite) fitImage();
-        }, { once: true });
+        const ready = new Promise((resolve) => {
+          layerImage.addEventListener("load", resolve, { once: true });
+          layerImage.addEventListener("error", resolve, { once: true });
+        }).then(() => layerImage.decode?.().catch(() => {}));
         layerImage.src = layer.src;
         composite.append(layerImage);
+        return ready;
       });
-      fitImage();
+      Promise.all(readyImages).then(() => {
+        if (id === requestId && phase === "loading") revealImage();
+      });
     } else {
       composite.hidden = true;
       composite.removeAttribute("aria-label");
@@ -501,28 +656,30 @@ const createLightbox = () => {
     lightbox.hidden = false;
     setPageInert(true);
 
-    window.requestAnimationFrame(() => {
+    openingFrame = window.requestAnimationFrame(() => {
+      openingFrame = null;
+      if (id !== requestId || phase === "closed" || phase === "closing") return;
       lightbox.classList.add("is-open");
       closeButton.focus({ preventScroll: true });
     });
   };
 
-  const close = () => {
-    if (lightbox.hidden) return;
-
+  const finishClose = () => {
     const returnFocus = activeTrigger;
+    activeMembers.forEach((member) => member.classList.remove("preview-in-lightbox"));
+    activeMembers = [];
     activeTrigger = null;
     activeLayers = null;
-    lightbox.classList.remove("is-open");
+    previewBox = null;
+    activeCrop = null;
+    sourceRect = null;
+    lightbox.hidden = true;
+    media.style.visibility = "hidden";
+    image.removeAttribute("src");
+    image.alt = "";
+    composite.replaceChildren();
+    setPhase("closed");
     setPageInert(false);
-
-    hideTimer = window.setTimeout(() => {
-      if (lightbox.classList.contains("is-open")) return;
-      lightbox.hidden = true;
-      image.removeAttribute("src");
-      image.alt = "";
-      composite.replaceChildren();
-    }, 180);
 
     if (returnFocus) {
       // Restore keyboard position without reactivating the artwork's hover/focus styling.
@@ -534,6 +691,34 @@ const createLightbox = () => {
       members.forEach((member) => member.classList.add("preview-return-hover"));
       returnFocus.focus({ preventScroll: true });
     }
+  };
+
+  const close = () => {
+    if (phase === "closed" || phase === "closing") return;
+    ++requestId;
+    const ready = phase !== "loading";
+    const from = window.getComputedStyle(media).transform;
+    cancelMotion();
+    lightbox.classList.remove("is-open");
+    setPhase("closing");
+
+    if (!ready || reducedMotion.matches || !media.animate) {
+      finishClose();
+      return;
+    }
+
+    const to = sourceTransform(getSourceRect());
+    const animation = media.animate([
+      { transform: from },
+      { transform: to },
+    ], motionOptions);
+    motion = animation;
+    animation.finished.then(() => {
+      if (motion !== animation) return;
+      finishClose();
+      animation.cancel();
+      motion = null;
+    }, () => {});
   };
 
   stage.addEventListener("click", (event) => {
@@ -551,13 +736,31 @@ const createLightbox = () => {
   lightbox.addEventListener("click", (event) => {
     if (event.target === lightbox) close();
   });
-  image.addEventListener("load", prepareImage);
+  image.addEventListener("load", async () => {
+    const id = requestId;
+    try {
+      await image.decode?.();
+    } catch {
+      // A successfully loaded image can still be displayed if decoding is unavailable.
+    }
+    if (id === requestId) prepareImage();
+  });
+  image.addEventListener("error", () => {
+    if (phase === "loading") close();
+  });
   closeButton.addEventListener("click", close);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !lightbox.hidden) close();
   });
   window.addEventListener("resize", () => {
-    if (!lightbox.hidden) fitImage();
+    if (phase === "closed" || phase === "loading") return;
+    const closing = phase === "closing";
+    cancelMotion();
+    if (closing) finishClose();
+    else {
+      fitImage();
+      setPhase("open");
+    }
   }, { passive: true });
 };
 
