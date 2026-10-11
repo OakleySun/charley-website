@@ -16,7 +16,10 @@ const applyBox = (element, item) => {
   if (item.border) element.style.border = item.border;
   if (item.background) element.style.background = item.background;
   if (item.shadow) element.style.boxShadow = item.shadow;
-  if (item.rotate) element.style.transform = `rotate(${item.rotate}deg)`;
+  if (item.matrix) {
+    element.style.transform = `matrix(${item.matrix.join(",")})`;
+    element.style.transformOrigin = "0 0";
+  } else if (item.rotate) element.style.transform = `rotate(${item.rotate}deg)`;
 };
 
 const makePreviewable = (element, item, assetRoot) => {
@@ -51,6 +54,11 @@ const makePreviewable = (element, item, assetRoot) => {
     inner: item.inner,
     fit: item.fit || "cover",
     position: item.position || "center",
+    opacity: item.opacity,
+    border: item.border,
+    background: item.background,
+    shadow: item.shadow,
+    rotate: item.rotate,
   });
   if (item.previewLayers) {
     element.dataset.previewLayers = JSON.stringify(item.previewLayers.map((layer) => ({
@@ -85,10 +93,10 @@ const loadDisplayImage = (image, layer, item, assetRoot, priority) => {
   image.src = `${assetRoot}/${displayAssetName(item.src)}`;
 };
 
-const createImage = (item, assetRoot, priority) => {
+const createImageFrame = (item, image) => {
+  image.className = "";
   if (item.sprite) {
     const frame = document.createElement("div");
-    const image = document.createElement("img");
     frame.className = item.inner ? "layer" : "layer sprite-layer";
 
     if (item.inner) {
@@ -110,14 +118,11 @@ const createImage = (item, assetRoot, priority) => {
     }
 
     image.style.height = "auto";
-    applyBox(frame, item);
-    loadDisplayImage(image, frame, item, assetRoot, priority);
-    return makePreviewable(frame, item, assetRoot);
+    return frame;
   }
 
   if (item.inner) {
     const frame = document.createElement("div");
-    const image = document.createElement("img");
     frame.className = "layer image-layer";
     image.style.width = px(item.inner.w);
     image.style.height = px(item.inner.h);
@@ -125,18 +130,21 @@ const createImage = (item, assetRoot, priority) => {
     if (item.position) image.style.objectPosition = item.position;
     image.style.transform = `translate(-50%, -50%) rotate(${item.inner.rotate || 0}deg)`;
     frame.append(image);
-    applyBox(frame, item);
-    loadDisplayImage(image, frame, item, assetRoot, priority);
-    return makePreviewable(frame, item, assetRoot);
+    return frame;
   }
 
-  const image = document.createElement("img");
   image.className = "layer";
   image.style.objectFit = item.fit || "cover";
   if (item.position) image.style.objectPosition = item.position;
-  applyBox(image, item);
-  loadDisplayImage(image, image, item, assetRoot, priority);
-  return makePreviewable(image, item, assetRoot);
+  return image;
+};
+
+const createImage = (item, assetRoot, priority) => {
+  const image = document.createElement("img");
+  const frame = createImageFrame(item, image);
+  applyBox(frame, item);
+  loadDisplayImage(image, frame, item, assetRoot, priority);
+  return makePreviewable(frame, item, assetRoot);
 };
 
 const createEffectText = (item, assetRoot) => {
@@ -197,14 +205,33 @@ const createLine = (item, assetRoot) => {
   image.fetchPriority = "low";
   image.loading = "lazy";
   image.src = `${assetRoot}/${item.src}`;
-  image.style.left = px(item.cx);
-  image.style.top = px(item.cy);
-  image.style.width = px(item.length);
-  image.style.height = px(item.thickness || 1);
-  image.style.transform = `translate(-50%, -50%) rotate(${item.angle}deg)`;
-  image.style.transformOrigin = "center";
-  if (item.opacity !== undefined) image.style.opacity = item.opacity;
-  return image;
+  if (item.matrix) {
+    applyBox(image, item);
+    return image;
+  }
+  const thickness = item.thickness || 1;
+  let frame = image;
+  if (item.renderScale) {
+    // Rasterize hairline SVGs above one pixel, then preserve their original visual size.
+    frame = document.createElement("div");
+    frame.className = "layer";
+    image.style.left = "0";
+    image.style.top = "0";
+    image.style.width = px(item.length * item.renderScale);
+    image.style.height = px(thickness * item.renderScale);
+    image.style.transform = `scale(${1 / item.renderScale})`;
+    image.style.transformOrigin = "0 0";
+    image.style.willChange = "transform";
+    frame.append(image);
+  }
+  frame.style.left = px(item.cx);
+  frame.style.top = px(item.cy);
+  frame.style.width = px(item.length);
+  frame.style.height = px(thickness);
+  frame.style.transform = `translate(-50%, -50%) rotate(${item.angle}deg)`;
+  frame.style.transformOrigin = "center";
+  if (item.opacity !== undefined) frame.style.opacity = item.opacity;
+  return frame;
 };
 
 const renderLayer = (item, assetRoot, priority = "low") => {
@@ -285,7 +312,6 @@ const createLightbox = () => {
   const previousButton = document.createElement("button");
   const nextButton = document.createElement("button");
   const announcement = document.createElement("div");
-  const imageAnalysisCache = new Map();
   const neighboringImages = new Map();
   const seenGroups = new Set();
   const gallery = [...stage.querySelectorAll(".artwork-trigger")]
@@ -301,8 +327,6 @@ const createLightbox = () => {
   let activeSource = "";
   let activeLayers = null;
   let previewBox = null;
-  let activeCrop = null;
-  let imageMetrics = null;
   let activeMembers = [];
   let sourceRect = null;
   let phase = "closed";
@@ -413,7 +437,7 @@ const createLightbox = () => {
   };
 
   const sourceTransform = (rect) => {
-    const target = (activeLayers ? composite : activeCrop ? media : image).getBoundingClientRect();
+    const target = (activeLayers ? composite : media).getBoundingClientRect();
     const frame = media.getBoundingClientRect();
     // Use a uniform scale so the artwork never stretches during its journey.
     const scale = Math.min(rect.width / target.width, rect.height / target.height);
@@ -461,72 +485,6 @@ const createLightbox = () => {
     }, () => {});
   };
 
-  const analyzeImage = () => {
-    const fullImage = {
-      x: 0,
-      y: 0,
-      width: image.naturalWidth,
-      height: image.naturalHeight,
-      transparent: false,
-    };
-    const sampleScale = Math.min(
-      1,
-      600 / Math.max(image.naturalWidth, image.naturalHeight),
-    );
-    const width = Math.max(1, Math.round(image.naturalWidth * sampleScale));
-    const height = Math.max(1, Math.round(image.naturalHeight * sampleScale));
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-
-    if (!context) return fullImage;
-    canvas.width = width;
-    canvas.height = height;
-
-    try {
-      context.drawImage(image, 0, 0, width, height);
-      const pixels = context.getImageData(0, 0, width, height).data;
-      let minX = width;
-      let minY = height;
-      let maxX = -1;
-      let maxY = -1;
-      let transparentPixels = 0;
-
-      for (let index = 3; index < pixels.length; index += 4) {
-        const alpha = pixels[index];
-        const pixel = (index - 3) / 4;
-        const x = pixel % width;
-        const y = Math.floor(pixel / width);
-
-        if (alpha < 250) transparentPixels += 1;
-        if (alpha <= 8) continue;
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x);
-        maxY = Math.max(maxY, y);
-      }
-
-      const transparent = transparentPixels / (width * height) > 0.005;
-      if (!transparent || maxX < minX || maxY < minY) return fullImage;
-
-      const inverseScale = 1 / sampleScale;
-      const margin = 2 * inverseScale;
-      const left = Math.max(0, minX * inverseScale - margin);
-      const top = Math.max(0, minY * inverseScale - margin);
-      const right = Math.min(image.naturalWidth, (maxX + 1) * inverseScale + margin);
-      const bottom = Math.min(image.naturalHeight, (maxY + 1) * inverseScale + margin);
-
-      return {
-        x: left,
-        y: top,
-        width: right - left,
-        height: bottom - top,
-        transparent: true,
-      };
-    } catch {
-      return fullImage;
-    }
-  };
-
   const fitImage = () => {
     if (activeLayers) {
       const left = Math.min(...activeLayers.map((layer) => layer.x));
@@ -537,10 +495,9 @@ const createLightbox = () => {
       const height = bottom - top;
       const maxWidth = previewMaxWidth();
       const maxHeight = window.innerHeight * 0.86;
-      const boardPadding = Math.round(Math.min(26, Math.max(12, window.innerWidth * 0.015)));
       const scale = Math.min(
-        (maxWidth - boardPadding * 2) / width,
-        (maxHeight - boardPadding * 2) / height,
+        maxWidth / width,
+        maxHeight / height,
         6,
         ...[...composite.children].map((layerImage, index) => {
           if (!layerImage.naturalWidth) return Infinity;
@@ -549,29 +506,29 @@ const createLightbox = () => {
         }),
       );
 
-      media.classList.add("has-transparency");
-      media.style.width = px(Math.round(width * scale + boardPadding * 2));
-      media.style.height = px(Math.round(height * scale + boardPadding * 2));
-      composite.style.left = px(boardPadding);
-      composite.style.top = px(boardPadding);
-      composite.style.width = px(Math.round(width * scale));
-      composite.style.height = px(Math.round(height * scale));
+      media.style.width = px(width * scale);
+      media.style.height = px(height * scale);
+      composite.style.left = "0";
+      composite.style.top = "0";
+      composite.style.width = px(width);
+      composite.style.height = px(height);
+      composite.style.transform = `scale(${scale})`;
+      composite.style.transformOrigin = "0 0";
 
       [...composite.children].forEach((layerImage, index) => {
         const layer = activeLayers[index];
-        layerImage.style.left = px(Math.round((layer.x - left) * scale));
-        layerImage.style.top = px(Math.round((layer.y - top) * scale));
-        layerImage.style.width = px(Math.round(layer.w * scale));
-        layerImage.style.height = px(Math.round(layer.h * scale));
+        applyBox(layerImage, { ...layer, x: layer.x - left, y: layer.y - top });
+        layerImage.style.objectFit = layer.fit || "cover";
+        layerImage.style.objectPosition = layer.position || "center";
       });
       return;
     }
 
     if (!image.naturalWidth || !image.naturalHeight) return;
 
-    // Enlarge the existing crop frame and offsets instead of revealing the whole source.
-    if (activeCrop) {
-      const box = activeCrop;
+    // Use the thumbnail renderer at its original dimensions, then scale the whole frame.
+    if (previewBox) {
+      const box = previewBox;
       const content = box.inner || box;
       const nativeScale = box.sprite
         ? image.naturalWidth / (content.w * parseFloat(box.sprite.width) / 100)
@@ -587,74 +544,14 @@ const createLightbox = () => {
 
       media.style.width = px(box.w * scale);
       media.style.height = px(box.h * scale);
-      image.style.objectFit = box.fit;
-      image.style.objectPosition = box.position;
-
-      if (box.sprite) {
-        if (box.inner) {
-          cropFrame.style.left = "50%";
-          cropFrame.style.top = "50%";
-          cropFrame.style.width = px(content.w * scale);
-          cropFrame.style.height = px(content.h * scale);
-          cropFrame.style.transform = `translate(-50%, -50%) rotate(${content.rotate || 0}deg)`;
-        }
-        Object.assign(image.style, box.sprite);
-        image.style.height = "auto";
-      } else if (box.inner) {
-        image.style.left = "50%";
-        image.style.top = "50%";
-        image.style.width = px(content.w * scale);
-        image.style.height = px(content.h * scale);
-        image.style.transform = `translate(-50%, -50%) rotate(${content.rotate || 0}deg)`;
-      } else {
-        image.style.left = "0";
-        image.style.top = "0";
-        image.style.width = "100%";
-        image.style.height = "100%";
-      }
-      return;
+      cropFrame.style.width = px(box.w);
+      cropFrame.style.height = px(box.h);
+      cropFrame.style.transform = `scale(${scale})`;
     }
-
-    const bounds = imageMetrics || {
-      x: 0,
-      y: 0,
-      width: image.naturalWidth,
-      height: image.naturalHeight,
-      transparent: false,
-    };
-    const maxWidth = previewMaxWidth();
-    const maxHeight = window.innerHeight * 0.86;
-    const boardPadding = bounds.transparent
-      ? Math.round(Math.min(26, Math.max(12, window.innerWidth * 0.015)))
-      : 0;
-    const availableWidth = Math.max(1, maxWidth - boardPadding * 2);
-    const availableHeight = Math.max(1, maxHeight - boardPadding * 2);
-    const scale = Math.min(
-      availableWidth / bounds.width,
-      availableHeight / bounds.height,
-      1,
-    );
-
-    media.classList.toggle("has-transparency", bounds.transparent);
-    media.style.width = px(Math.round(bounds.width * scale + boardPadding * 2));
-    media.style.height = px(Math.round(bounds.height * scale + boardPadding * 2));
-    image.style.width = px(Math.round(image.naturalWidth * scale));
-    image.style.height = px(Math.round(image.naturalHeight * scale));
-    image.style.left = px(Math.round(boardPadding - bounds.x * scale));
-    image.style.top = px(Math.round(boardPadding - bounds.y * scale));
   };
 
   const prepareImage = () => {
     if (phase !== "loading" || activeLayers || !image.naturalWidth) return;
-    const croppedAspect = previewBox && Math.abs(
-      (image.naturalWidth / image.naturalHeight) / (previewBox.w / previewBox.h) - 1,
-    ) > 0.005;
-    activeCrop = previewBox && (previewBox.sprite || previewBox.inner
-      || (previewBox.fit === "cover" && croppedAspect)) ? previewBox : null;
-    if (!activeCrop) {
-      imageMetrics = imageAnalysisCache.get(activeSource) || analyzeImage();
-      imageAnalysisCache.set(activeSource, imageMetrics);
-    }
     revealImage();
   };
 
@@ -685,23 +582,11 @@ const createLightbox = () => {
       : null;
     activeSource = activeLayers ? "" : trigger.dataset.previewSrc;
     previewBox = trigger.dataset.previewBox ? JSON.parse(trigger.dataset.previewBox) : null;
-    activeCrop = null;
-    imageMetrics = activeSource ? imageAnalysisCache.get(activeSource) || null : null;
-    media.classList.remove("has-transparency");
     media.style.width = "";
     media.style.height = "";
-    image.style.width = "";
-    image.style.height = "";
-    image.style.left = "";
-    image.style.top = "";
-    image.style.transform = "";
-    image.style.objectFit = "contain";
-    image.style.objectPosition = "center";
-    cropFrame.style.left = "";
-    cropFrame.style.top = "";
-    cropFrame.style.width = "";
-    cropFrame.style.height = "";
-    cropFrame.style.transform = "";
+    image.removeAttribute("style");
+    cropFrame.replaceChildren();
+    cropFrame.hidden = Boolean(activeLayers);
     composite.replaceChildren();
 
     if (activeLayers) {
@@ -730,6 +615,10 @@ const createLightbox = () => {
       composite.hidden = true;
       composite.removeAttribute("aria-label");
       image.hidden = false;
+      const frame = createImageFrame(previewBox, image);
+      applyBox(frame, { ...previewBox, x: 0, y: 0 });
+      image.classList.add("lightbox-image");
+      cropFrame.append(frame);
       image.src = activeSource;
       image.alt = trigger.dataset.previewAlt || "Portfolio artwork";
       if (image.complete && image.naturalWidth) {
@@ -762,7 +651,6 @@ const createLightbox = () => {
     activeTrigger = null;
     activeLayers = null;
     previewBox = null;
-    activeCrop = null;
     sourceRect = null;
     lightbox.hidden = true;
     media.style.visibility = "hidden";

@@ -13,6 +13,7 @@ const S = (src, x, y, w, h, width, height, left, top, options = {}) => ({
 const T = (html, x, y, w, h, size, options = {}) => ({ type: "text", html, x, y, w, h, size, ...options });
 const R = (x, y, w, h, options = {}) => ({ type: "rect", x, y, w, h, ...options });
 const L = (src, cx, cy, length, angle, options = {}) => ({ type: "line", src, cx, cy, length, angle, ...options });
+const V = (src, x, y, w, h, matrix) => ({ type: "line", src, x, y, w, h, matrix });
 const A = (alt, options = {}) => ({ preview: true, alt, ...options });
 
 window.portfolioDesigns = {
@@ -28,7 +29,7 @@ window.portfolioDesigns = {
       I("imgImage54.png", -222, -109, 1044, 665, { priority: "high" }),
       I("imgImage56.png", -156, -123, 887.381, 994.727, { priority: "high", inner: { w: 567.091, h: 825.288, rotate: -27.9 } }),
       E("text-charleys-portfolio.png", 660, 576, 206, 94, "Charley’s Portfolio"),
-      E("text-latest-update.png", 663, 671, 103, 43, "latest update 9.16.26"),
+      E("text-latest-update.png", 663.502, 671.659, 103, 42.5, "latest update 10.08.26"),
       E("text-graphic-design-link.png", 325, 378, 89, 50, "graphic design", {
         href: "/graphic-design",
         label: "Open graphic design page",
@@ -140,29 +141,29 @@ window.portfolioDesigns = {
       I("imgDesktop1.png", 863, 153, 317, 658, A("HelloHacks website design", { shadow: "0 4px 4px rgb(0 0 0 / 25%)" })),
       I("imgGroup471.png", 1076, 13, 104, 130, A("BizTech social media design")),
       I("imgGroup461.png", 963, 13, 104, 130, A("BizTech event graphic")),
-      I("imgGroup371201.png", 699, 172, 156.66, 168, A("HelloHacks app mockups", {
+      I("imgGroup371201.png", 702, 174, 156.66, 168, A("HelloHacks app mockups", {
         previewGroup: "hellohacks-app",
-        previewGroupOrigin: { x: 777.33, y: 256 },
+        previewGroupOrigin: { x: 780.33, y: 258 },
         previewLayers: [
           { src: "imgGroup371201.png", x: 0, y: 0, w: 156.66, h: 168 },
           { src: "imgGroup3712011.png", x: 22.26, y: 33.18, w: 112.14, h: 89.46 },
         ],
       })),
-      I("imgGroup3712011.png", 721.26, 205.18, 112.14, 89.46, {
+      I("imgGroup3712011.png", 724.26, 207.18, 112.14, 89.46, {
         previewGroup: "hellohacks-app",
-        previewGroupOrigin: { x: 777.33, y: 256 },
+        previewGroupOrigin: { x: 780.33, y: 258 },
       }),
-      I("imgSticker91.png", 742, 43, 203, 149, A("HelloHacks interface concept")),
+      I("imgSticker91.png", 745, 49, 203, 149, A("HelloHacks interface concept")),
       E("text-clubs-organizations.png", 17.002, 386.896, 477.735, 157.798, "Clubs & Organizations"),
       E("text-ubcbiztech.png", 708, 544, 131, 26, "@ubcbiztech"),
-      E("text-ubcsac.png", 546, 242, 95, 25, "@ubcsac"),
+      E("text-ubcsac.png", 521.02, 260, 95, 25, "@ubcsac"),
       E("text-ubchksa.png", 267, 243, 105, 25, "@ubchksa"),
-      I("img202526MeetTheSac1.png", 465, 15, 110.264, 137.83, A("Meet the SAC poster")),
+      I("img202526MeetTheSac1.png", 440, 33, 110.264, 137.83, A("Meet the SAC poster")),
       I("imgHksa20252026ExecPost21.png", 23, 64.06, 128.23, 128.23, A("HKSA president poster")),
       I("imgJeopardy1.png", 134, 166, 122, 152, A("Jeopardy event poster")),
-      I("imgSacSpotlightTemplate1.png", 434, 143, 95.04, 168.96, A("SAC spotlight poster")),
+      I("imgSacSpotlightTemplate1.png", 409, 161, 95.04, 168.96, A("SAC spotlight poster")),
       I("imgNnn11.png", 36, 198, 81, 102, A("No Net November poster")),
-      T("Since first year, I’ve been involved with the UBC community through the following positions", 36, 550, 243, 57, 12.941, {
+      T("Since first year, I’ve been involved with the UBC community through the following positions", 36, 553, 243, 57, 12.941, {
         lineHeight: 18,
         letterSpacing: 0.5176,
       }),
@@ -184,16 +185,16 @@ window.portfolioDesigns = {
       }),
       T("in progress mockups / drafts", 351, 610, 74, 29, 10, { font: "note", lineHeight: 10, letterSpacing: 0.4 }),
       T("collab with pmc", 574, 553, 74, 29, 10, { font: "note", lineHeight: 10, letterSpacing: 0.4 }),
-      T("sticker designs for hellohacks", 665, 38, 74, 29, 10, { font: "note", lineHeight: 10, letterSpacing: 0.4 }),
+      T("sticker designs for hellohacks", 659, 95, 74, 29, 10, { font: "note", lineHeight: 10, letterSpacing: 0.4 }),
       T("the first club i joined in university &amp; the first sense of “home” i felt at school", 270, 268, 98, 66, 10, { font: "note", lineHeight: 11, letterSpacing: 0.4 }),
       T("landing page for hellohacks registration", 693, 416, 65, 41, 10, { font: "note", lineHeight: 11, letterSpacing: 0.4 }),
-      T("a personal project where alumni offer personal and professional advice to students @ ubc", 548, 316, 106, 44, 10, { font: "note", lineHeight: 11, letterSpacing: 0.4 }),
-      L("imgLine14.svg", 730.5, 84, 71.589, 28.35, { thickness: 1 }),
+      T("a personal project where alumni offer personal and professional advice to students @ ubc", 523, 334, 106, 44, 10, { font: "note", lineHeight: 11, letterSpacing: 0.4 }),
+      V("imgLine14.svg", 690.973093, 122.050454, 81.5839, 7.15636, [0.92199713, 0.38719675, -0.38719675, 0.92199713, 0, 0]),
       L("imgLine16.svg", 817.5, 401, 123.438, -25.94, { thickness: 1 }),
-      L("imgLine15.svg", 717, 129.5, 130.081, 73.93, { thickness: 1 }),
-      L("imgLine20.svg", 545.5, 287, 71.421, 44.43, { thickness: 1 }),
+      V("imgLine15.svg", 690.981404, 121.831521, 78.6821, 13.5234, [0.57387978, 0.81893957, -0.83695006, 0.54727924, 0, 0]),
+      L("imgLine20.svg", 520.5, 305, 71.421, 44.43, { thickness: 1 }),
       L("imgLine13.svg", 451, 704.5, 183.742, 40.36, { thickness: 0.5 }),
-      I("imgCareerNightCountdown1.png", 567.2, 70.52, 92.235, 163.973, A("Career Night countdown graphic")),
+      I("imgCareerNightCountdown1.png", 542.2, 88.52, 92.235, 163.973, A("Career Night countdown graphic")),
       I("imgInstagramPost31.png", 450, 622, 89, 111, A("Club Instagram post")),
       I("imgConceptPost21.png", 511, 696, 100, 125, A("Club social media concept")),
       L("imgLine17.svg", 419, 651, 76.942, 8.97, { thickness: 0.5 }),
@@ -250,12 +251,12 @@ window.portfolioDesigns = {
       T("one of my<br>first designs", 501, 104, 74, 29, 10, { font: "note", lineHeight: 10, letterSpacing: 0.4 }),
       T("5 minute sketch; most of my designs take less than 30 minutes", 67, 453, 96, 40, 10, { font: "note", lineHeight: 10, letterSpacing: 0.4 }),
       T("commission", 716, 220, 74, 29, 10, { font: "note", lineHeight: 10, letterSpacing: 0.4 }),
-      L("imgLine1.svg", 892.5, 226, 270.963, 141.14, { thickness: 0.3 }),
-      L("imgLine6.svg", 520, 503.5, 57, 90, { thickness: 0.3 }),
-      L("imgLine2.svg", 921.5, 668, 105.816, 149.31, { thickness: 0.6 }),
-      L("imgLine4.svg", 103, 431, 40.447, 81.47, { thickness: 0.6 }),
-      L("imgLine3.svg", 900.5, 258.5, 249.467, -169.14, { thickness: 0.3 }),
-      L("imgLine5.svg", 467.5, 88, 70.178, -139.04, { thickness: 0.6 }),
+      L("imgLine1.svg", 892.5, 226, 270.963, 141.14, { thickness: 0.3, renderScale: 16 }),
+      L("imgLine6.svg", 520, 503.5, 57, 90, { thickness: 0.3, renderScale: 16 }),
+      L("imgLine2.svg", 921.5, 668, 105.816, 149.31, { thickness: 0.3, renderScale: 16 }),
+      L("imgLine4.svg", 103, 431, 40.447, 81.47, { thickness: 0.3, renderScale: 16 }),
+      L("imgLine3.svg", 900.5, 258.5, 249.467, -169.14, { thickness: 0.3, renderScale: 16 }),
+      L("imgLine5.svg", 467.5, 88, 70.178, -139.04, { thickness: 0.3, renderScale: 16 }),
       E("text-tattoos-title.png", 410.15, 405.956, 219.5, 65.25, "Tattoos"),
       I("imgPxl2024122703501356121.png", 419, 658, 109, 145, A("Tattoo photograph")),
       S("imgPxl2024072609485559121.png", 15, 679, 104, 146, "144.97%", "137.85%", "-23.6%", "-23.11%", A("Tattoo study photograph")),
@@ -346,12 +347,11 @@ window.portfolioDesigns = {
         weight: 200,
         letterSpacing: 0.4,
       }),
-      I("imgImage12.png", 468, 213, 263.832, 349.343, A("Portrait of Charley", { fit: "contain", previewSrc: "imgImage12.original.png" })),
-      I("imgPufferTankScreenshot1290359Edited1.png", 50, 453, 72, 72, A("Puffer tank clothing render", { previewSrc: "imgPufferTankScreenshot1290359Edited1.original.png" })),
-      I("imgPearlGirlScreenshot1290346Edited1.png", 20, 521, 75, 75, A("Pearl girl clothing render", { previewSrc: "imgPearlGirlScreenshot1290346Edited1.original.png" })),
+      I("imgImage12.png", 468, 213, 263.832, 349.343, A("Portrait of Charley", { fit: "contain" })),
+      I("imgPufferTankScreenshot1290359Edited1.original.png", 50, 453, 72, 72, A("Puffer tank clothing render")),
+      I("imgPearlGirlScreenshot1290346Edited1.original.png", 20, 521, 75, 75, A("Pearl girl clothing render")),
       L("imgLine11.svg", 303.5, 209.5, 207.562, 16.51, { thickness: 0.259 }),
-      // This canvas-level image includes its exported shadow bounds.
-      I("imgImage60.png", 103, 508, 90, 86, A("Purple 3D render (Image 60)", { fit: "contain", previewSrc: "imgImage60.original.png" })),
+      I("imgImage60.original.png", 103, 508, 90, 86, A("Purple 3D render (Image 60)", { fit: "contain" })),
     ],
   },
 };
